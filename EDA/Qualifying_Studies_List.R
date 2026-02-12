@@ -57,7 +57,17 @@ qualifying_studies <- sampleMetadata %>%
   mutate(
     disease_class = factor(
       disease_class,
-      levels = c("HC", "PA", "PA+", "CRC", "CRC+", "CRC-M", "CRC-H")
+      levels = c(
+        "Other", 
+        "HC",
+        "PA",
+        "PA+",
+        "PA-M",
+        "CRC",
+        "CRC+",
+        "CRC-H",
+        "CRC-M"
+      )
     )
   ) %>% 
   mutate(
