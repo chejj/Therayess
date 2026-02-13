@@ -123,7 +123,7 @@ qualifying_studies %>%
   ggtitle("Counts of CRC Progression Stages in Study")
 ```
 
-## Age and Gender Analysis
+## Age Analysis
 
 ### Normality
 
@@ -179,7 +179,7 @@ qualifying_studies %>%
   labs(x = "Age", y = "Count")
 ```
 
-### Age by Decade Analysis
+### By Decade
 
 ```{r}
 #| label: Age by Decade
@@ -197,6 +197,8 @@ decade1 <- qualifying_studies %>%
   
   # Labeling 
   #--------- 
+  geom_text(stat = "count", aes(label = after_stat(count)), 
+            vjust = -0.21, size = 3.5, color = "black") +
   theme(axis.text.x = element_text(angle = 30, hjust = 1, lineheight = 1.1), 
         axis.title.x = element_text(hjust = 1.5), 
         plot.title = element_text(hjust = -0.5)) +
@@ -246,13 +248,31 @@ qualifying_studies %>%
 
 ```
 
-#### Gender vs. Disease Categories
+### By Gender
 
 ```{r}
 #| label: Gendered Disease Comparisons
 # ---
 
+# Gender By Disease Category
+############################
+qualifying_studies %>% 
+  # Set-up
+  # ------
+  filter(!is.na(age), !is.na(gender)) %>% 
+  # Plotting
+  # --------
+  ggplot(aes(x=gender, fill=disease_class)) +
+  geom_bar(position = "fill") +
+  scale_fill_manual(values = progression_colors, name = "CRC Progression") +
+  # Labeling
+  #---------
+  ggtitle("Proportions of CRC Progression Categorization by Gender") +
+  labs(x = "Age", y = "Proportion") +
+  theme(axis.text.x = element_text(angle = 25, hjust = 1, lineheight = 1.1))
+
 # Gendered Barplot: Counts
+##########################
 qualifying_studies %>%
   # Set Up
   # ------
@@ -270,6 +290,7 @@ qualifying_studies %>%
   theme(axis.text.x = element_text(angle = 25, hjust = 1, lineheight = 1.1))
 
 # Gendered Barplot: Proportions
+###############################
 qualifying_studies %>%
   # Set Up
   # ------
@@ -283,11 +304,11 @@ qualifying_studies %>%
   # Labeling
   #---------
   ggtitle("Distribution of Age") +
-  labs(x = "Age", y = "Count") +
+  labs(x = "Age", y = "Proportion") +
   theme(axis.text.x = element_text(angle = 25, hjust = 1, lineheight = 1.1))
 ```
 
-#### Box Plots
+#### Disease Category Box Plots
 
 ```{r}
 #| label: Box Plots Age 
@@ -353,7 +374,25 @@ Note: We actually have no information on the ethnicity of our study subjects in 
 
 ```{r}
 #| label: Countries
-country1 <- qualifying_studies 
+# ---
+
+# Countries sample count distribution
+#####################################
+
+country1 <- qualifying_studies  %>% 
+  # Set Up
+  # ------
+  filter(!is.na(country)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = reorder(country, country, 
+                         FUN = function(x) -length(x)))) + 
+  geom_bar() +
+  # Labeling
+  #---------
+  geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.17, color = "black") +
+  ggtitle("Location of Indiviudals (Countries)") +
+  labs(x = "Countries", y = "Count")
 ```
 
 ### City
@@ -363,6 +402,7 @@ country1 <- qualifying_studies
 # ---
 
 # Country Barplot: Counts
+#########################
 qualifying_studies %>%
   # Set Up
   # ------
