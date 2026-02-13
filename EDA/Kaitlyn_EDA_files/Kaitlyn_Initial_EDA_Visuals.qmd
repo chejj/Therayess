@@ -73,7 +73,8 @@ contributor1 <- qualifying_studies %>%
                          FUN = function(x) -length(x)),
                          fill = disease_class)) +
   geom_bar() +
-  scale_fill_manual(values = progression_colors, name = "CRC Progression \nCategory") +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nCategory") +
   theme(axis.text.x = element_text(angle = 20, hjust = 1, lineheight = 1.1)) +
   # Labeling
   #---------
@@ -90,7 +91,8 @@ contributor2 <- qualifying_studies %>%
                          FUN = function(x) -length(x)),
                          fill = disease_class)) +
   geom_bar(position = "fill") +
-  scale_fill_manual(values = progression_colors, name = "CRC Progression \nCategory") +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nCategory") +
   theme(axis.text.x = element_text(angle = 20, hjust = 1, lineheight = 1.1)) +
   # Labeling
   #---------
@@ -116,7 +118,8 @@ qualifying_studies %>%
   # --------
   ggplot(aes(x=disease_class, stat = "count", fill = disease_class)) +
   geom_bar() +
-  scale_fill_manual(values = progression_colors, name = "CRC Progression \nCategory") +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nCategory") +
   # Labeling
   #---------
   labs(y = "Sample Count", x = "CRC Progression") +
@@ -217,7 +220,8 @@ decade2 <- qualifying_studies %>%
   # -------- 
   ggplot(aes(x=age_decade, fill = disease_class)) + 
   geom_bar() + 
-  scale_fill_manual(values = progression_colors, name = "CRC Progression \nCategory") + 
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nCategory") + 
   # Labeling 
   #--------- 
   theme(axis.text.x = element_text(angle = 30, hjust = 1, lineheight = 1.1),
@@ -264,7 +268,8 @@ qualifying_studies %>%
   # --------
   ggplot(aes(x=gender, fill=disease_class)) +
   geom_bar(position = "fill") +
-  scale_fill_manual(values = progression_colors, name = "CRC Progression") +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nCategory") +
   # Labeling
   #---------
   ggtitle("Proportions of CRC Progression Categorization by Gender") +
@@ -281,7 +286,8 @@ qualifying_studies %>%
   # --------
   ggplot(aes(x = age_decade, fill = disease_class)) + 
   geom_bar() +
-  scale_fill_manual(values = progression_colors, name = "CRC Progression") +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nCategory") +
   facet_wrap(~gender) +
   # Labeling
   #---------
@@ -299,7 +305,8 @@ qualifying_studies %>%
   # --------
   ggplot(aes(x = age_decade, fill = disease_class)) + 
   geom_bar(position = "fill") +
-  scale_fill_manual(values = progression_colors, name = "CRC Progression") +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nCategory") +
   facet_wrap(~gender) +
   # Labeling
   #---------
@@ -373,7 +380,7 @@ Note: We actually have no information on the ethnicity of our study subjects in 
 ### Country
 
 ```{r}
-#| label: Countries
+#| label: Countries Disease Comparisons
 # ---
 
 # Countries sample count distribution
@@ -390,36 +397,68 @@ country1 <- qualifying_studies  %>%
   geom_bar() +
   # Labeling
   #---------
-  geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.17, color = "black") +
-  ggtitle("Location of Indiviudals (Countries)") +
-  labs(x = "Countries", y = "Count")
-```
+  geom_text(stat = "count", aes(label = after_stat(count)), 
+            vjust = -0.21, size = 3, color = "black") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 0.9, lineheight = 1.1), 
+        axis.title.x = element_text(hjust = -0.75), 
+        plot.title = element_text(hjust = -0.6), 
+        plot.subtitle = element_text(hjust = -0.5)) +
+  xlab("Country (NATO country code, trigram)") + 
+  labs(
+    title = "Country Sample Count Distribution", 
+    subtitle = "With and Without CRC Disease Progression")
 
-### City
-
-```{r}
-#| label: Countries And Disease ProgressionGeographical Barplots
-# ---
-
-# Country Barplot: Counts
-#########################
-qualifying_studies %>%
+country2 <- qualifying_studies  %>% 
   # Set Up
   # ------
   filter(!is.na(country)) %>%
   # Plotting
   # --------
   ggplot(aes(x = reorder(country, country, 
-                         FUN = function(x) -length(x)))) + 
+                         FUN = function(x) -length(x)), 
+             fill=disease_class)) + 
   geom_bar() +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nCategory") +
   # Labeling
   #---------
-  geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.17, color = "black") +
-  ggtitle("Location of Indiviudals (Countries)") +
-  labs(x = "Countries", y = "Count")
+  theme(axis.text.x = element_text(angle = 30, hjust = 0.9, lineheight = 1.1),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.y = element_blank()
+  )
 
-# City Barplot: Counts
-qualifying_studies %>%
+country1 | country2
+
+# Countries Barplot: Proportions
+################################
+qualifying_studies  %>% 
+  # Set Up
+  # ------
+  filter(!is.na(country)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = reorder(country, country, 
+                         FUN = function(x) -length(x)), fill = disease_class)) + 
+  geom_bar(position = "fill") +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nCategory") +
+  # Labeling
+  #---------
+  ggtitle("Proportion of CRC Disease Progression Per Country") +
+  labs(x = "Country (NATO country code, trigram)", y = "Proportion")
+```
+
+### City
+
+```{r}
+#| label: Location (City) Disease Comparisons
+# ---
+
+# Location (City) sample count distribution
+#####################################
+
+city1 <- qualifying_studies  %>% 
   # Set Up
   # ------
   filter(!is.na(location)) %>%
@@ -430,10 +469,56 @@ qualifying_studies %>%
   geom_bar() +
   # Labeling
   #---------
-  geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.17, color = "black") +
-  ggtitle("Location of Indiviudals (City)") +
-  labs(x = "Location (City)", y = "Count")
+  geom_text(stat = "count", aes(label = after_stat(count)), 
+            vjust = -0.21, size = 3, color = "black") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 0.9, lineheight = 1.1), 
+        axis.title.x = element_text(hjust = 1.5), 
+        plot.title = element_text(hjust = -0.5), 
+        plot.subtitle = element_text(hjust = -1)) +
+  xlab("Location (City)") + 
+  labs(
+    title = "Location (City) Sample Count Distribution", 
+    subtitle = "With and Without CRC Disease Progression")
 
+city2 <- qualifying_studies  %>% 
+  # Set Up
+  # ------
+  filter(!is.na(location)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = reorder(location, location, 
+                         FUN = function(x) -length(x)), 
+             fill=disease_class)) + 
+  geom_bar() +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nCategory") +
+  # Labeling
+  #---------
+  theme(axis.text.x = element_text(angle = 30, hjust = 0.9, lineheight = 1.1),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.y = element_blank()
+  )
+
+city1 | city2
+
+# Countries Barplot: Proportions
+################################
+qualifying_studies  %>% 
+  # Set Up
+  # ------
+  filter(!is.na(location)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = reorder(location, location, 
+                         FUN = function(x) -length(x)), fill = disease_class)) + 
+  geom_bar(position = "fill") +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nCategory") +
+  # Labeling
+  #---------
+  ggtitle("Proportion of CRC Disease Progression Per Location (City)") +
+  labs(x = "Location (City)", y = "Proportion")
 
 ```
 
