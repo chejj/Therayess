@@ -1,0 +1,34 @@
+# R / RStudio
+.RData
+.Rhistory
+.Rproj.user/
+.Rproj.user
+# Checkpoints
+*.RDataTmp
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# R markdown cache
+*_cache/
+*_files/
+
+# renv (if using renv, keep lockfile but ignore library)
+renv/library/
+
+# Common large outputs
+*.rds
+*.Rds
+*.feather
+*.qs
+

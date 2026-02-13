@@ -1,0 +1,151 @@
+---
+title: "Kaitlyn Initial Metadata EDA cMD3 for CRC Progression"
+format: html
+editor: visual
+---
+
+### Library Load & Setup
+
+```{r}
+#| label: Setup
+# ---
+  
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(knitr)
+  library(kableExtra)
+  library(mosaic)
+})
+
+progression_order <- c(
+  "Other", 
+  "HC",
+  "PA",
+  "PA+",
+  "PA-M",
+  "CRC",
+  "CRC+",
+  "CRC-H",
+  "CRC-M"
+)
+
+qualifying_studies <- qualifying_studies %>% 
+  mutate(
+    disease_class = factor(disease_class, levels = progression_order)
+  )
+```
+
+# Ideas of Interest:
+
+## Study Counts
+
+```{r}
+#| label: Study Counts Check, Simple
+# ---
+
+# Setup / Tabling
+#################
+study.table <- table(qualifying_studies$study_name)
+disease.class.table <- table(qualifying_studies$disease_class)
+
+# Beautify
+##########
+study.table %>% 
+  as.data.frame() %>%   # Must be data frame, cannot use filter function on a table
+  filter(Freq > 0) %>%
+  kbl(col.names = c("Study Name", "Frequency")) %>% 
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T) %>% 
+  footnote(general = "Study name is the last name, first initial, and publication year of the study.\nIf there are mutiple with the same format, then a lowercase alphabetical\nletter is also appended.")
+
+disease.class.table %>% 
+  as.data.frame() %>%   # Must be data frame, cannot use filter function on a table
+  filter(Freq > 0) %>%
+  kbl(col.names = c("CRC Progression\nCategory    ", "Frequency")) %>% 
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T)
+```
+
+```{r}
+#| label: Study Counts Check, Complex
+# --- 
+
+# Setup / Tabling
+#################
+study.disease.class.table <- table(qualifying_studies$study_name,qualifying_studies$disease_class)
+
+# Beautify
+##########
+study.disease.class.table %>% 
+  as.data.frame() %>%
+  filter(Freq > 0) %>% 
+  arrange(Var1, desc(Freq)) %>%
+  kbl(col.names = c("Study Name", "Disease Class", "Frequency"),
+      caption = "Counts by Study and CRC Progression Class", format = "html") %>%
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T) %>%
+  collapse_rows(columns = 1, valign = "top")
+```
+
+## Age and Gender Analysis
+
+```{r}
+#| label: Age Check
+# ---
+
+favstats(qualifying_studies$age)
+favstats(qualifying_studies$age ~ qualifying_studies$gender)
+```
+
+## Age & Disease Progression
+
+```{r}
+
+favstats(qualifying_studies$age ~ qualifying_studies$disease_class)
+favstats(qualifying_studies$age ~ qualifying_studies$disease_stage)
+favstats(qualifying_studies$age ~ qualifying_studies$disease_location)
+qualifying_studies %>% 
+  filter(
+  disease_location == "right_colon" |
+  disease_location == "left_colon" |
+  disease_location == "rectum"
+) %>% 
+  favstats(age ~ disease_location)
+```
+
+## Geography & Ethnicity
+
+```{r}
+#| label: Locations Table
+# ---
+
+qualifying_studies$country %>%
+  table(useNA = "ifany") %>%
+  as.data.frame() %>%
+  arrange(desc(Freq)) %>%
+  kable(
+    format = "markdown",
+    col.names = c("Country", "Frequency"),
+    align = "c",
+    caption = "Counts of Countries"
+  )
+
+qualifying_studies$location %>%
+  table(useNA = "ifany") %>%
+  as.data.frame() %>%
+  arrange(desc(Freq)) %>%
+  kable(
+    format = "markdown",
+    col.names = c("City/Location", "Frequency"),
+    align = "c",
+    caption = "Counts of Location"
+  )
+
+
+```
+
+## Diet
+
+## BMI
+
+## Smoking & Alcohol

@@ -57,7 +57,17 @@ qualifying_studies <- sampleMetadata %>%
   mutate(
     disease_class = factor(
       disease_class,
-      levels = c("HC", "PA", "PA+", "CRC", "CRC+", "CRC-M", "CRC-H")
+      levels = c(
+        "Other", 
+        "HC",
+        "PA",
+        "PA+",
+        "PA-M",
+        "CRC",
+        "CRC+",
+        "CRC-H",
+        "CRC-M"
+      )
     )
   ) %>% 
   mutate(
@@ -69,7 +79,7 @@ qualifying_studies <- sampleMetadata %>%
     study_condition, disease, disease_class, disease_subtype, disease_stage, disease_location, days_from_first_collection, days_after_onset,
     sequencing_platform, DNA_extraction_kit, 
     cholesterol, wbc, rbc, stool_texture)
-View(qualifying_studies)
+#View(qualifying_studies)
 cat("\n=== Qualifying Studies ===\n")
 cat("Qualifying Studies samples (all):", nrow(qualifying_studies), "\n")
 cat("Qualifying Studies samples (healthy):", qualifying_studies %>% filter(disease == "healthy") %>% nrow(), "\n")
