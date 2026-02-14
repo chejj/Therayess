@@ -236,7 +236,7 @@ decade1 + decade2
 
 # Proportion: Age Decade
 ###########################
-qualifying_studies %>%
+decade3 <- qualifying_studies %>%
   # Set Up
   # ------
   filter (!is.na(age_decade)) %>%
@@ -249,6 +249,10 @@ qualifying_studies %>%
   #---------
   ggtitle("Proportion of Disease by Age Decade") + 
   labs(x = "Age By Decade", y = "Proportion")
+
+decade3
+
+
 
 ```
 
