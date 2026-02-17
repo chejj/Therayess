@@ -50,14 +50,6 @@ qualifying_studies <- qualifying_studies %>%
 
 # Ideas of Interest:
 
-1.  Diet
-
-2.  BMI
-
-3.  Gender analysis
-
-4.  Smoking & Drinking
-
 ## Contributing Studies
 
 ```{r}
@@ -324,6 +316,7 @@ qualifying_studies %>%
 ```{r}
 #| label: Box Plots Age 
 # ---  
+
 # Our categories 
 ################ 
 qualifying_studies %>%   
@@ -533,6 +526,7 @@ qualifying_studies  %>%
 # --- 
 
 # Diet Barplot: Counts
+######################
 qualifying_studies %>%
   # Set Up
   # ------
@@ -550,6 +544,7 @@ qualifying_studies %>%
   labs(x = "Diet", y = "Counts")
 
 # Diet Barplot: Proportion
+##########################
 qualifying_studies %>%
   # Set Up
   # ------
@@ -569,11 +564,177 @@ qualifying_studies %>%
 ## BMI
 
 ```{r}
+#| label: BMI Analyses 
+# ---  
 
+# Our CRC Progression Categories 
+################################
+qualifying_studies %>%   
+  # Set Up   
+  # ------   
+  filter(!is.na(BMI)) %>%   
+  # Plotting   
+  # --------   
+  ggplot(aes(x=disease_class, y=BMI)) +    
+  geom_boxplot(outlier.shape = NA) +   
+  geom_jitter(alpha = 0.15, width = 0.15) +   
+  stat_summary(fun = mean, geom = "point", shape = 20, size = 5, color = "red") +
+  # Labeling   
+  #---------   
+  ggtitle("Distribution of BMI by CRC Progression") +   
+  ylab("BMI") +    xlab("CRC Progression")  
+
+# BMI and Age Colored by CRC Progression 
+########################################
+qualifying_studies %>%   
+  # Set Up   
+  # ------   
+  filter (!is.na(age), !is.na(BMI)) %>%   
+  # Plotting   
+  # --------   
+  ggplot(aes(x=age, y=BMI)) +    
+  geom_point(aes(color = disease_class,)) + 
+  geom_smooth(method = "lm", color = "grey40") +
+  scale_color_manual(values = progression_colors, name = "CRC Progression") +
+  facet_wrap(~disease_class, ) +
+  # Labeling   
+  #---------   
+  ggtitle("Age by BMI, Colored by CRC Progression Class") +   
+  ylab("BMI") +    
+  xlab("Age") 
 ```
 
 ## Smoking & Alcohol
 
+### Smoking
+
 ```{r}
+#| label: Smoking Analyses 
+# ---  
+
+# Current Smokers, Previous Smokers, And Never Smokers: Counts
+##############################################################
+qualifying_studies %>%   
+  # Set Up   
+  # ------   
+  filter(!is.na(smoker), !is.na(ever_smoker)) %>% 
+  mutate(
+    smoking_status = case_when(
+      smoker == "no" & ever_smoker == "no" ~ "Never", 
+      smoker == "no" & ever_smoker == "yes" ~ "Previous Smoker", 
+      TRUE ~ "Current Smoker"
+  )) %>% 
+  # Plotting   
+  # --------   
+  ggplot(aes(x = reorder(smoking_status, smoking_status, 
+                         FUN = function(x) -length(x)))) + 
+  geom_bar(aes(fill = disease_class)) +
+  scale_fill_manual(values = progression_colors, name = "CRC Progression") +
+  # Labeling
+  #---------
+  geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.17, color = "black") +
+  ggtitle("Smoking Status of Individuals") +
+  labs(x = "Smoking Status", y = "Counts")
+
+# Current Smokers, Previous Smokers, And Never Smokers: Proportions
+###################################################################
+qualifying_studies %>%
+  # Set Up
+  # ------
+  filter(!is.na(smoker), !is.na(ever_smoker)) %>% 
+  mutate(
+    smoking_status = case_when(
+      smoker == "no" & ever_smoker == "no" ~ "Never", 
+      smoker == "no" & ever_smoker == "yes" ~ "Previous Smoker", 
+      TRUE ~ "Current Smoker"
+    )) %>% 
+  # Plotting
+  # --------
+  ggplot(aes(x = reorder(smoking_status, smoking_status, 
+                         FUN = function(x) -length(x)))) + 
+  geom_bar(aes(fill = disease_class), position = "fill") +
+  scale_fill_manual(values = progression_colors, name = "CRC Progression") +
+  # Labeling
+  #---------
+  ggtitle("Smoking Status of Individuals") +
+  labs(x = "Smoking Status", y = "Counts")
+```
+
+###   Alcohol
+
+Note: There are only remarkable values in our `alcohol_numeric` column. The `alcohol` column only contains "no" and "N/A" values and thus was not deemed worthy of further analysis.
+
+```{r}
+#| label: Alcohol Analysis: Normality Check
+# ---
+
+# Normality check
+#################
+
+# QQPlot
+########
+normality3 <- qualifying_studies %>% 
+  # Set Up
+  # ------
+  filter(!is.na(alcohol_numeric)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(sample = alcohol_numeric)) + 
+  geom_qq() + 
+  geom_qq_line() +
+  # Labeling
+  #---------
+  ggtitle("QQ Plot of Alcohol (Numeric)")
+
+# Histogram
+###########
+normality4 <- qualifying_studies %>%
+  # Set Up
+  # ------
+  filter(!is.na(alcohol_numeric)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = alcohol_numeric)) + 
+  geom_histogram(bins=20) + 
+  # Labeling
+  #---------
+  ggtitle("Distribution of Alcohol (Numeric)") +
+  xlab("Alcohol (Numeric)")
+
+normality3 / normality4
+
+# QQPlot
+########
+normality5 <- qualifying_studies %>% 
+  # Set Up
+  # ------
+  filter(!is.na(alcohol_numeric)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(sample = log(alcohol_numeric))) + 
+  geom_qq() + 
+  geom_qq_line() +
+  # Labeling
+  #---------
+  ggtitle("QQ Plot of Log-Transformed Alcohol (Numeric)") +
+  
+
+# Histogram
+###########
+normality6 <- qualifying_studies %>%
+  # Set Up
+  # ------
+  filter(!is.na(alcohol_numeric)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = log(alcohol_numeric))) + 
+  geom_histogram(bins=20) + 
+  # Labeling
+  #---------
+  ggtitle("Distribution of Log-Transformed Alcohol (Numeric)") +
+  xlab("Log-Transformed Alcohol (Numeric)")
+
+normality5 / normality6
+
 
 ```
