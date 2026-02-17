@@ -467,9 +467,7 @@ city1 <- qualifying_studies  %>%
   geom_text(stat = "count", aes(label = after_stat(count)), 
             vjust = -0.21, size = 3, color = "black") +
   theme(axis.text.x = element_text(angle = 30, hjust = 0.9, lineheight = 1.1), 
-        axis.title.x = element_text(hjust = 1.5), 
-        plot.title = element_text(hjust = -0.5), 
-        plot.subtitle = element_text(hjust = -1)) +
+        axis.title.x = element_text(hjust = 1.5)) +
   xlab("Location (City)") + 
   labs(
     title = "Location (City) Sample Count Distribution", 
@@ -538,7 +536,7 @@ qualifying_studies %>%
   # Labeling
   #---------
   geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.17, color = "black") +
-  ggtitle("Diet of Indiviudals") +
+  ggtitle("Diet of Individuals") +
   labs(x = "Diet", y = "Counts")
 
 # Diet Barplot: Proportion
@@ -555,7 +553,7 @@ qualifying_studies %>%
   scale_fill_manual(values = progression_colors, name = "CRC Progression \nClassifiers") +
   # Labeling
   #---------
-  ggtitle("Diet of Indiviudals") +
+  ggtitle("Diet of Individuals") +
   labs(x = "Diet", y = "Proportion")
 ```
 
@@ -579,8 +577,8 @@ qualifying_studies %>%
   stat_summary(fun = mean, geom = "point", shape = 20, size = 5, color = "red") +
   # Labeling   
   #---------   
-  ggtitle("Distribution of BMI by CRC Progression") +   
-  ylab("BMI") +    xlab("CRC Progression")  
+  ggtitle("Distribution of BMI by CRC Progression Classifier") +   
+  ylab("BMI") +    xlab("CRC Progression \nClassifiers")  
 
 # BMI and Age Colored by CRC Progression 
 ########################################
@@ -593,11 +591,11 @@ qualifying_studies %>%
   ggplot(aes(x=age, y=BMI)) +    
   geom_point(aes(color = disease_class,)) + 
   geom_smooth(method = "lm", color = "grey40") +
-  scale_color_manual(values = progression_colors, name = "CRC Progression") +
+  scale_color_manual(values = progression_colors, name = "CRC Progression \nClassifiers") +
   facet_wrap(~disease_class, ) +
   # Labeling   
   #---------   
-  ggtitle("Age by BMI, Colored by CRC Progression Class") +   
+  ggtitle("Age by BMI, Colored by CRC Progression Classifier") +   
   ylab("BMI") +    
   xlab("Age") 
 ```
@@ -627,7 +625,7 @@ qualifying_studies %>%
   ggplot(aes(x = reorder(smoking_status, smoking_status, 
                          FUN = function(x) -length(x)))) + 
   geom_bar(aes(fill = disease_class)) +
-  scale_fill_manual(values = progression_colors, name = "CRC Progression \nClassifier") +
+  scale_fill_manual(values = progression_colors, name = "CRC Progression \nClassifiers") +
   # Labeling
   #---------
   geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.17, color = "black") +
@@ -651,7 +649,7 @@ qualifying_studies %>%
   ggplot(aes(x = reorder(smoking_status, smoking_status, 
                          FUN = function(x) -length(x)))) + 
   geom_bar(aes(fill = disease_class), position = "fill") +
-  scale_fill_manual(values = progression_colors, name = "CRC Progression \nClassifier") +
+  scale_fill_manual(values = progression_colors, name = "CRC Progression \nClassifiers") +
   # Labeling
   #---------
   ggtitle("Smoking Status of Individuals") +
