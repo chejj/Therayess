@@ -208,7 +208,7 @@ decade1 <- qualifying_studies %>%
   xlab("Age by Decade") + 
   labs(
     title = "Age Distribution By Decade", 
-    subtitle = "With and Without CRC Disease Progression")
+    subtitle = "With and Without CRC Progression")
 
 # Barplot of age categories: Colored
 ####################################
@@ -247,7 +247,7 @@ decade3 <- qualifying_studies %>%
   scale_fill_manual(values = progression_colors, name = "CRC Progression \nCategory") +
   # Labeling
   #---------
-  ggtitle("Proportion of Disease by Age Decade") + 
+  ggtitle("Proportion of CRC Progression by Age Decade") + 
   labs(x = "Age By Decade", y = "Proportion")
 
 decade3
@@ -436,7 +436,7 @@ country1 | country2
 
 # Countries Barplot: Proportions
 ################################
-qualifying_studies  %>% 
+qualifying_studies %>% 
   # Set Up
   # ------
   filter(!is.na(country)) %>%
@@ -449,7 +449,7 @@ qualifying_studies  %>%
                     name = "CRC Progression \nCategory") +
   # Labeling
   #---------
-  ggtitle("Proportion of CRC Disease Progression Per Country") +
+  ggtitle("Proportion of CRC Progression Per Country") +
   labs(x = "Country (NATO country code, trigram)", y = "Proportion")
 ```
 
@@ -482,7 +482,7 @@ city1 <- qualifying_studies  %>%
   xlab("Location (City)") + 
   labs(
     title = "Location (City) Sample Count Distribution", 
-    subtitle = "With and Without CRC Disease Progression")
+    subtitle = "With and Without CRC Progression")
 
 city2 <- qualifying_studies  %>% 
   # Set Up
@@ -521,7 +521,7 @@ qualifying_studies  %>%
                     name = "CRC Progression \nCategory") +
   # Labeling
   #---------
-  ggtitle("Proportion of CRC Disease Progression Per Location (City)") +
+  ggtitle("Proportion of CRC Progression Per Location (City)") +
   labs(x = "Location (City)", y = "Proportion")
 
 ```

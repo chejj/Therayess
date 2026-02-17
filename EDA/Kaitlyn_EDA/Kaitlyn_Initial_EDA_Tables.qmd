@@ -53,10 +53,12 @@ disease.class.table <- table(qualifying_studies$disease_class)
 study.table %>% 
   as.data.frame() %>%   # Must be data frame, cannot use filter function on a table
   filter(Freq > 0) %>%
+  arrange(-Freq) %>% 
   kbl(col.names = c("Study Name", "Frequency")) %>% 
   kable_styling(full_width = F) %>% 
   column_spec(1, bold = T) %>% 
-  footnote(general = "Study name is the last name, first initial, and publication year of the study.\nIf there are mutiple with the same format, then a lowercase alphabetical\nletter is also appended.")
+  footnote(general = "Study name is the last name, first initial, and publication year of the study.\nIf there are multiple with the same format, then a lowercase alphabetical\nletter is also appended.")
+
 
 disease.class.table %>% 
   as.data.frame() %>%   # Must be data frame, cannot use filter function on a table
