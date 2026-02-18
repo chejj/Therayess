@@ -11,10 +11,9 @@ grid:
 ```{r}
 #| label: Setup
 # ---
-  
+source("./EDA/Qualifying_Studies_List.R")  
 suppressPackageStartupMessages({
   library(ggplot2)
-  library(dplyr)
   library(knitr)
   library(patchwork)
 })
