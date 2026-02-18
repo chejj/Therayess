@@ -9,7 +9,7 @@ editor: visual
 ```{r}
 #| label: Setup
 # ---
-  
+source("../Qualifying_Studies_List.R")  
 suppressPackageStartupMessages({
   library(dplyr)
   library(knitr)
