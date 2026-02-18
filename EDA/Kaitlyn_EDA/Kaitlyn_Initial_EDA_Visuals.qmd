@@ -11,10 +11,9 @@ grid:
 ```{r}
 #| label: Setup
 # ---
-  
+source("../Qualifying_Studies_List.R")  
 suppressPackageStartupMessages({
   library(ggplot2)
-  library(dplyr)
   library(knitr)
   library(patchwork)
 })
@@ -50,14 +49,6 @@ qualifying_studies <- qualifying_studies %>%
 
 # Ideas of Interest:
 
-1.  Diet
-
-2.  BMI
-
-3.  Gender analysis
-
-4.  Smoking & Drinking
-
 ## Contributing Studies
 
 ```{r}
@@ -74,13 +65,13 @@ contributor1 <- qualifying_studies %>%
                          fill = disease_class)) +
   geom_bar() +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nCategory") +
+                    name = "CRC Progression \nClassifiers") +
   theme(axis.text.x = element_text(angle = 20, hjust = 1, lineheight = 1.1)) +
   # Labeling
   #---------
   xlab("Author Last Name, First Initial, and Year") +
   ylab("Sample Count") +
-  ggtitle("Qualifying Study Sample Count by CRC Progression Category")
+  ggtitle("Qualifying Study Sample Count by CRC Progression Class")
 
 # Bar Chart by Study
 ####################
@@ -92,13 +83,13 @@ contributor2 <- qualifying_studies %>%
                          fill = disease_class)) +
   geom_bar(position = "fill") +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nCategory") +
+                    name = "CRC Progression \nClassifiers") +
   theme(axis.text.x = element_text(angle = 20, hjust = 1, lineheight = 1.1)) +
   # Labeling
   #---------
   xlab("Author Last Name, First Initial, and Year") +
-  ylab("Disease Category Proportion") +
-  ggtitle("Qualifying Study Sample Proportions by CRC Progression Category")
+  ylab("Proportion") +
+  ggtitle("Qualifying Study Sample Proportions by CRC Progression Class")
 
 contributor1
 
@@ -111,7 +102,7 @@ contributor2
 #| label: Study Disease Proportion Check
 # ---
   
-# Bar Chart of total CRC Progression Category Proportions
+# Bar Chart of Total CRC Progression Class Proportions
 #########################################################
 qualifying_studies %>%
   # Plotting
@@ -119,11 +110,11 @@ qualifying_studies %>%
   ggplot(aes(x=disease_class, stat = "count", fill = disease_class)) +
   geom_bar() +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nCategory") +
+                    name = "CRC Progression \nClassifiers") +
   # Labeling
   #---------
-  labs(y = "Sample Count", x = "CRC Progression") +
-  ggtitle("Counts of CRC Progression Stages in Study")
+  labs(y = "Sample Count", x = "CRC Progression Classes") +
+  ggtitle("Counts of CRC Progression Classes in Study")
 ```
 
 ## Age Analysis
@@ -160,7 +151,7 @@ normality2 <- qualifying_studies %>%
   geom_histogram(bins=20) + 
   # Labeling
   #---------
-  ggtitle("Distribution of age") +
+  ggtitle("Distribution of Age") +
   xlab("age")
 
 normality1 / normality2
@@ -203,12 +194,11 @@ decade1 <- qualifying_studies %>%
   geom_text(stat = "count", aes(label = after_stat(count)), 
             vjust = -0.21, size = 3.5, color = "black") +
   theme(axis.text.x = element_text(angle = 30, hjust = 1, lineheight = 1.1), 
-        axis.title.x = element_text(hjust = 1.5), 
-        plot.title = element_text(hjust = -0.5)) +
+        axis.title.x = element_text(hjust = 1.5)) +
   xlab("Age by Decade") + 
   labs(
     title = "Age Distribution By Decade", 
-    subtitle = "With and Without CRC Progression")
+    subtitle = "With and Without CRC Progression Classifiers")
 
 # Barplot of age categories: Colored
 ####################################
@@ -221,7 +211,7 @@ decade2 <- qualifying_studies %>%
   ggplot(aes(x=age_decade, fill = disease_class)) + 
   geom_bar() + 
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nCategory") + 
+                    name = "CRC Progression \nClassifiers") + 
   # Labeling 
   #--------- 
   theme(axis.text.x = element_text(angle = 30, hjust = 1, lineheight = 1.1),
@@ -244,16 +234,14 @@ decade3 <- qualifying_studies %>%
   # --------
   ggplot(aes(x=age_decade, fill = disease_class)) +
   geom_bar(position="fill") +
-  scale_fill_manual(values = progression_colors, name = "CRC Progression \nCategory") +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nClassifiers") +
   # Labeling
   #---------
   ggtitle("Proportion of CRC Progression by Age Decade") + 
   labs(x = "Age By Decade", y = "Proportion")
 
 decade3
-
-
-
 ```
 
 ### By Gender
@@ -273,10 +261,10 @@ qualifying_studies %>%
   ggplot(aes(x=gender, fill=disease_class)) +
   geom_bar(position = "fill") +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nCategory") +
+                    name = "CRC Progression \nClassifiers") +
   # Labeling
   #---------
-  ggtitle("Proportions of CRC Progression Categorization by Gender") +
+  ggtitle("Proportions of CRC Progression Classifier by Gender") +
   labs(x = "Age", y = "Proportion") +
   theme(axis.text.x = element_text(angle = 25, hjust = 1, lineheight = 1.1))
 
@@ -291,7 +279,7 @@ qualifying_studies %>%
   ggplot(aes(x = age_decade, fill = disease_class)) + 
   geom_bar() +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nCategory") +
+                    name = "CRC Progression \nClassifiers") +
   facet_wrap(~gender) +
   # Labeling
   #---------
@@ -310,7 +298,7 @@ qualifying_studies %>%
   ggplot(aes(x = age_decade, fill = disease_class)) + 
   geom_bar(position = "fill") +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nCategory") +
+                    name = "CRC Progression \nClassifiers") +
   facet_wrap(~gender) +
   # Labeling
   #---------
@@ -324,6 +312,7 @@ qualifying_studies %>%
 ```{r}
 #| label: Box Plots Age 
 # ---  
+
 # Our categories 
 ################ 
 qualifying_studies %>%   
@@ -339,7 +328,8 @@ qualifying_studies %>%
   # Labeling   
   #---------   
   ggtitle("Distribution of Age by CRC Progression") +   
-  ylab("Age") +    xlab("CRC Progression")  
+  ylab("Age") +
+  xlab("CRC Progression")  
 
 # Disease Location 
 ################# 
@@ -370,7 +360,7 @@ qualifying_studies %>%
   ggplot(aes(x=disease_stage, y=age)) +    
   geom_boxplot(outlier.shape = NA) +   
   geom_jitter(alpha = 0.15, width = 0.15) +   
-  stat_summary(fun = mean, geom = "point", shape = 20, size = 5, color = "red") +     # Labeling   
+  stat_summary(fun = mean, geom = "point", shape = 20, size = 5, color = "red") +   
   #---------   
   ggtitle("Distribution of Age by Disease Stage") +   
   ylab("Age") +    
@@ -410,7 +400,7 @@ country1 <- qualifying_studies  %>%
   xlab("Country (NATO country code, trigram)") + 
   labs(
     title = "Country Sample Count Distribution", 
-    subtitle = "With and Without CRC Disease Progression")
+    subtitle = "With and Without CRC Progression Classifiers")
 
 country2 <- qualifying_studies  %>% 
   # Set Up
@@ -423,7 +413,7 @@ country2 <- qualifying_studies  %>%
              fill=disease_class)) + 
   geom_bar() +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nCategory") +
+                    name = "CRC Progression \nClassifiers") +
   # Labeling
   #---------
   theme(axis.text.x = element_text(angle = 30, hjust = 0.9, lineheight = 1.1),
@@ -446,7 +436,7 @@ qualifying_studies %>%
                          FUN = function(x) -length(x)), fill = disease_class)) + 
   geom_bar(position = "fill") +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nCategory") +
+                    name = "CRC Progression \nClassifiers") +
   # Labeling
   #---------
   ggtitle("Proportion of CRC Progression Per Country") +
@@ -476,13 +466,11 @@ city1 <- qualifying_studies  %>%
   geom_text(stat = "count", aes(label = after_stat(count)), 
             vjust = -0.21, size = 3, color = "black") +
   theme(axis.text.x = element_text(angle = 30, hjust = 0.9, lineheight = 1.1), 
-        axis.title.x = element_text(hjust = 1.5), 
-        plot.title = element_text(hjust = -0.5), 
-        plot.subtitle = element_text(hjust = -1)) +
+        axis.title.x = element_text(hjust = 1.5)) +
   xlab("Location (City)") + 
   labs(
     title = "Location (City) Sample Count Distribution", 
-    subtitle = "With and Without CRC Progression")
+    subtitle = "With and Without CRC Progression Classifiers")
 
 city2 <- qualifying_studies  %>% 
   # Set Up
@@ -495,7 +483,7 @@ city2 <- qualifying_studies  %>%
              fill=disease_class)) + 
   geom_bar() +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nCategory") +
+                    name = "CRC Progression \nClassifiers") +
   # Labeling
   #---------
   theme(axis.text.x = element_text(angle = 30, hjust = 0.9, lineheight = 1.1),
@@ -518,10 +506,10 @@ qualifying_studies  %>%
                          FUN = function(x) -length(x)), fill = disease_class)) + 
   geom_bar(position = "fill") +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nCategory") +
+                    name = "CRC Progression \nClassifiers") +
   # Labeling
   #---------
-  ggtitle("Proportion of CRC Progression Per Location (City)") +
+  ggtitle("Proportion of CRC Progression Class Per Location (City)") +
   labs(x = "Location (City)", y = "Proportion")
 
 ```
@@ -533,6 +521,7 @@ qualifying_studies  %>%
 # --- 
 
 # Diet Barplot: Counts
+######################
 qualifying_studies %>%
   # Set Up
   # ------
@@ -542,14 +531,15 @@ qualifying_studies %>%
   ggplot(aes(x = reorder(diet, diet, 
                          FUN = function(x) -length(x)))) + 
   geom_bar(aes(fill = disease_class)) +
-  scale_fill_manual(values = progression_colors, name = "CRC Progression") +
+  scale_fill_manual(values = progression_colors, name = "CRC Progression \nClassifiers") +
   # Labeling
   #---------
   geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.17, color = "black") +
-  ggtitle("Diet of Indiviudals") +
+  ggtitle("Diet of Individuals") +
   labs(x = "Diet", y = "Counts")
 
 # Diet Barplot: Proportion
+##########################
 qualifying_studies %>%
   # Set Up
   # ------
@@ -559,21 +549,238 @@ qualifying_studies %>%
   ggplot(aes(x = reorder(diet, diet, 
                          FUN = function(x) -length(x)))) + 
   geom_bar(aes(fill = disease_class), position = "fill") +
-  scale_fill_manual(values = progression_colors, name = "CRC Progression") +
+  scale_fill_manual(values = progression_colors, name = "CRC Progression \nClassifiers") +
   # Labeling
   #---------
-  ggtitle("Diet of Indiviudals") +
+  ggtitle("Diet of Individuals") +
   labs(x = "Diet", y = "Proportion")
 ```
 
 ## BMI
 
 ```{r}
+#| label: BMI Analyses 
+# ---  
 
+# Our CRC Progression Categories 
+################################
+qualifying_studies %>%   
+  # Set Up   
+  # ------   
+  filter(!is.na(BMI)) %>%   
+  # Plotting   
+  # --------   
+  ggplot(aes(x=disease_class, y=BMI)) +    
+  geom_boxplot(outlier.shape = NA) +   
+  geom_jitter(alpha = 0.15, width = 0.15) +   
+  stat_summary(fun = mean, geom = "point", shape = 20, size = 5, color = "red") +
+  # Labeling   
+  #---------   
+  ggtitle("Distribution of BMI by CRC Progression Classifier") +   
+  ylab("BMI") +    xlab("CRC Progression \nClassifiers")  
+
+# BMI and Age Colored by CRC Progression 
+########################################
+qualifying_studies %>%   
+  # Set Up   
+  # ------   
+  filter (!is.na(age), !is.na(BMI)) %>%   
+  # Plotting   
+  # --------   
+  ggplot(aes(x=age, y=BMI)) +    
+  geom_point(aes(color = disease_class,)) + 
+  geom_smooth(method = "lm", color = "grey40") +
+  scale_color_manual(values = progression_colors, name = "CRC Progression \nClassifiers") +
+  facet_wrap(~disease_class, ) +
+  # Labeling   
+  #---------   
+  ggtitle("Age by BMI, Colored by CRC Progression Classifier") +   
+  ylab("BMI") +    
+  xlab("Age") 
 ```
 
 ## Smoking & Alcohol
 
-```{r}
+### Smoking
 
+```{r}
+#| label: Smoking Analyses 
+# ---  
+
+# Current Smokers, Previous Smokers, And Never Smokers: Counts
+##############################################################
+qualifying_studies %>%   
+  # Set Up   
+  # ------   
+  filter(!is.na(smoker), !is.na(ever_smoker)) %>% 
+  mutate(
+    smoking_status = case_when(
+      smoker == "no" & ever_smoker == "no" ~ "Never", 
+      smoker == "no" & ever_smoker == "yes" ~ "Previous Smoker", 
+      TRUE ~ "Current Smoker"
+  )) %>% 
+  # Plotting   
+  # --------   
+  ggplot(aes(x = reorder(smoking_status, smoking_status, 
+                         FUN = function(x) -length(x)))) + 
+  geom_bar(aes(fill = disease_class)) +
+  scale_fill_manual(values = progression_colors, name = "CRC Progression \nClassifiers") +
+  # Labeling
+  #---------
+  geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.17, color = "black") +
+  ggtitle("Smoking Status of Individuals") +
+  labs(x = "Smoking Status", y = "Counts")
+
+# Current Smokers, Previous Smokers, And Never Smokers: Proportions
+###################################################################
+qualifying_studies %>%
+  # Set Up
+  # ------
+  filter(!is.na(smoker), !is.na(ever_smoker)) %>% 
+  mutate(
+    smoking_status = case_when(
+      smoker == "no" & ever_smoker == "no" ~ "Never", 
+      smoker == "no" & ever_smoker == "yes" ~ "Previous Smoker", 
+      TRUE ~ "Current Smoker"
+    )) %>% 
+  # Plotting
+  # --------
+  ggplot(aes(x = reorder(smoking_status, smoking_status, 
+                         FUN = function(x) -length(x)))) + 
+  geom_bar(aes(fill = disease_class), position = "fill") +
+  scale_fill_manual(values = progression_colors, name = "CRC Progression \nClassifiers") +
+  # Labeling
+  #---------
+  ggtitle("Smoking Status of Individuals") +
+  labs(x = "Smoking Status", y = "Proportion")
+```
+
+### Alcohol
+
+Note: There are only remarkable values in our `alcohol_numeric` column, derived from Yachida et al. (2019). The `alcohol` column only contains "no" and "N/A" values and thus was not deemed worthy of further analysis.
+
+```{r}
+#| label: Alcohol Analysis: Drinkers vs Non-Drinkers via Numerics
+# ---
+
+# Current vs No Alcohol Setup: 
+##############################
+alcohol_qualifying <- qualifying_studies %>%   
+  # Set Up   
+  # ------   
+  filter(!is.na(alcohol_numeric)) %>% 
+  mutate(
+    alcohol_any = if_else(alcohol_numeric >0, "Drinker", "Non-Drinker")
+  ) 
+
+# Barplot Counts & Proportions
+##############################
+alcohol1 <- alcohol_qualifying %>% 
+  # Plotting   
+  # --------   
+  ggplot(aes(x = reorder(alcohol_any, alcohol_any, 
+                         FUN = function(x) -length(x)))) + 
+  geom_bar(aes(fill = disease_class)) +
+  scale_fill_manual(values = progression_colors, name = "CRC Progression \nClassifier") +
+  # Labeling
+  #---------
+  geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.17, color = "black") +
+  ggtitle("Drinking Status of Individuals") +
+  theme(axis.title.x = element_text(hjust = 1.5),
+        legend.position = "none") + 
+  labs(
+    title = "Drinking Status", 
+    subtitle = "Count vs Proportion", 
+    x = "Drinking Status", 
+    y = "Counts")
+
+alcohol2 <- alcohol_qualifying %>% 
+  ggplot(aes(x = reorder(alcohol_any, alcohol_any, 
+                         FUN = function(x) -length(x)))) + 
+  geom_bar(aes(fill = disease_class), position = "fill") +
+  scale_fill_manual(values = progression_colors, name = "CRC Progression \nClassifier") +
+  # Labeling
+  #---------
+  labs(y = "Proportion") +
+  theme(axis.title.x = element_blank())
+
+alcohol1 + alcohol2
+```
+
+```{r}
+#| label: Alcohol Analysis: Drinkers Normality Check
+
+# Normality check
+#################
+
+# QQPlot, Unmodified
+####################
+normality3 <- alcohol_qualifying %>% 
+  # Set Up
+  # ------
+  filter(alcohol_any == "Drinker") %>%
+  # Plotting
+  # --------
+  ggplot(aes(sample = alcohol_numeric)) + 
+  geom_qq() + 
+  geom_qq_line() +
+  # Labeling
+  #---------
+  ggtitle("QQ Plot of Alcohol (Numeric, grams per day)")
+
+# Histogram, Unmodified
+#######################
+normality4 <- alcohol_qualifying %>%
+  # Set Up
+  # ------
+  filter(alcohol_any == "Drinker") %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = alcohol_numeric)) + 
+  geom_histogram(bins=20) + 
+  # Labeling
+  #---------
+  ggtitle("Distribution of Alcohol (Numeric)") +
+  xlab("Alcohol (Numeric, grams per day)")
+
+normality3 / normality4
+
+
+```
+
+```{r}
+# QQPlot, Log-Transformed
+#########################
+
+normality5 <- alcohol_qualifying %>% 
+  # Set Up
+  # ------
+  filter(alcohol_any == "Drinker") %>%
+  # Plotting
+  # --------
+  ggplot(aes(sample = log(alcohol_numeric))) + 
+  geom_qq() + 
+  geom_qq_line() +
+  # Labeling
+  #---------
+  ggtitle("QQ Plot of Log-Transformed Alcohol (Numeric, grams per day)")
+  
+
+# Histogram, Log-Transformed
+############################
+
+normality6 <- alcohol_qualifying %>%
+  # Set Up
+  # ------
+  filter(alcohol_any == "Drinker") %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = log(alcohol_numeric))) + 
+  geom_histogram(bins = 35) + 
+  # Labeling
+  #---------
+  ggtitle("Distribution of Log-Transformed Alcohol (Numeric)") +
+  xlab("Log-Transformed Alcohol (Numeric, grams per day)")
+
+normality5 / normality6
 ```
