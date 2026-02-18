@@ -1,0 +1,6 @@
+2021-03-31.ThomasAM_2018b.gene_families
+2021-03-31.ThomasAM_2018b.marker_abundance
+2021-03-31.ThomasAM_2018b.marker_presence
+2021-03-31.ThomasAM_2018b.pathway_abundance
+2021-03-31.ThomasAM_2018b.pathway_coverage
+2021-03-31.ThomasAM_2018b.relative_abundance

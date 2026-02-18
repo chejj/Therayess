@@ -13,5 +13,6 @@ print(studies)
 # Information Available per Study
 #################################
 for (study in studies) {
-  curatedMetagenomicData(study, dryrun = TRUE)
+  outfile <- paste0("./EDA/Kaitlyn_EDA/Info_Availability/", study, "_info_availability.txt")
+  writeLines(curatedMetagenomicData(study, dryrun = TRUE), outfile)
 }
