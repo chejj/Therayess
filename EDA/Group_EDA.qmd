@@ -46,6 +46,8 @@ author:
 -   **Introduction to Data (1-2 page)**\
     Provide an overview of your dataset, including its source (with relevant links), purpose, and your rationale for selecting it. Clearly state your EDA objectives and briefly describe the EDA methods used. Explain the importance of EDA in the context of your overall project.
 
+    -   Pull from methods section from proposal/revised proposal and the project statement, good depth there on selection of the data and why we chose the data/methods.
+
 -   **Exploratory Data Analysis (4-5 pages)**\
     This is the core of your report. Present your findings using relevant summary statistics, tables, and visualizations. Ensure each EDA objective is addressed clearly and supported by appropriate evidence from your analysis.
 
@@ -56,21 +58,33 @@ author:
 
 ### General Notes
 
--   Metadata EDA
+-   Potential flow of our EDA section: Data Availability/Selection → Metadata analysis → Taxa/pathway discussions → Data Limitations (What gets cut out after filtering) → Next Steps
 
-    -   The factors we mentioned in our proposals (ie age, sex, geography/ethnicity, diet, antibiotics, etc)
+    -   Data Availability
 
-        -   For geography, the top 3 affected countries by CRC are represented in our data set, which is good. We should note that we are missing representations from certain continenets
+        -   What does the whole cMD3 offer in its standardized data, including how Bioconductor data works (`summarizedExperiments` vs `TreeSummarizedExperiments`)?
 
--   Taxa vs pathways
+        -   What data remains, what could be answered, what can still be explored?
 
-    -   what we can do now (personal machines) vs what we need to do later on the HPC cluster (Sol)
+    -   Metadata EDA
 
--   Data Availability vs Limitations
+        -   The factors we mentioned in our proposals (ie age, sex, geography/ethnicity, diet, antibiotics, etc)
 
-    -   What does the whole cMD3 offer in its standardized data, including how Bioconductor data works (`summarizedExperiments` vs `TreeSummarizedExperiments`)?
+            -   What has too little to give real meaning behind trends we see?
 
-    -   What remains and what gets lost once we filter it with our exclusionary criteria?
+        -   For geography, the top 3 affected countries by CRC are represented in our data set, which is good. We should note that we are missing representations from certain continents
+
+    -   Taxa vs pathways
+
+        -   what we can do now (personal machines) vs what we need to do later on the HPC cluster (Sol)
+
+    -    Data Limitations
+
+        -   What gets lost once we filter it with our exclusionary criteria?
+
+        -   What would be unable to answer with what we have, and what gaps would remain to be filled?
+
+------------------------------------------------------------------------
 
 ------------------------------------------------------------------------
 
