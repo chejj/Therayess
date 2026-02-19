@@ -394,9 +394,7 @@ country1 <- qualifying_studies  %>%
   geom_text(stat = "count", aes(label = after_stat(count)), 
             vjust = -0.21, size = 3, color = "black") +
   theme(axis.text.x = element_text(angle = 30, hjust = 0.9, lineheight = 1.1), 
-        axis.title.x = element_text(hjust = -0.75), 
-        plot.title = element_text(hjust = -0.6), 
-        plot.subtitle = element_text(hjust = -0.5)) +
+        axis.title.x = element_text(hjust = -0.75)) +
   xlab("Country (NATO country code, trigram)") + 
   labs(
     title = "Country Sample Count Distribution", 
@@ -577,7 +575,7 @@ qualifying_studies %>%
   # Labeling   
   #---------   
   ggtitle("Distribution of BMI by CRC Progression Classifier") +   
-  ylab("BMI") +    xlab("CRC Progression \nClassifiers")  
+  ylab("BMI") +    xlab("CRC Progression Classifiers")  
 
 # BMI and Age Colored by CRC Progression 
 ########################################

@@ -76,7 +76,7 @@ qualifying_studies <- sampleMetadata %>%
     age_decade = if_else(age_decade == "10-19" | age_decade == "20-29", "18-29", age_decade)
   ) %>% 
   select(
-    study_name, subject_id, antibiotics_current_use,
+    study_name, sample_id, subject_id, antibiotics_current_use,
     age, age_category, age_decade, gender, BMI, smoker, ever_smoker, alcohol, alcohol_numeric, diet, country, location, population,
     study_condition, disease, disease_class, disease_subtype, disease_stage, disease_location, days_from_first_collection, days_after_onset,
     sequencing_platform, DNA_extraction_kit, 
