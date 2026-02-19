@@ -10,37 +10,19 @@ author:
 
 # Delete Before Submitting
 
-+------------+---------------------------------------------------------------+
-| Student    | Assignment                                                    |
-+============+===============================================================+
-| Cory       | Country & Category                                            |
-+------------+---------------------------------------------------------------+
-| Kaitlyn    | Age & Sex                                                     |
-|            |                                                               |
-|            | Data Availability Table (Show's what cMD has from each study) |
-+------------+---------------------------------------------------------------+
-| Faith      | Limitations (Missing Data, Pop size, etc.)                    |
-+------------+---------------------------------------------------------------+
-| Jacob      | Summary Stats, Glossary & Introduction                        |
-+------------+---------------------------------------------------------------+
-
-## General Notes
-
--   Metadata EDA
-
-    -   The factors we mentioned in our proposals (ie age, sex, geography/ethnicity, diet, antibiotics, etc)
-
-        -   For geography, the top 3 affected countries by CRC are represented in our data set, which is good. We should note that we are missing representations from certain continenets
-
--   Taxa vs pathways
-
-    -   what we can do now (personal machines) vs what we need to do later on the HPC cluster (Sol)
-
--   Data Availability vs Limitations
-
-    -   What does the whole cMD3 offer in its standardized data, including how Bioconductor data works (`summarizedExperiments` vs `TreeSummarizedExperiments`)?
-
-    -   What remains and what gets lost once we filter it with our exclusionary criteria?
++--------------+---------------------------------------------------------------+
+| Student      | Assignment                                                    |
++==============+===============================================================+
+| Cory         | Country & Category                                            |
++--------------+---------------------------------------------------------------+
+| Kaitlyn      | Age & Sex                                                     |
+|              |                                                               |
+|              | Data Availability Table (Show's what cMD has from each study) |
++--------------+---------------------------------------------------------------+
+| Faith        | Limitations (Missing Data, Pop size, etc.)                    |
++--------------+---------------------------------------------------------------+
+| Jacob        | Summary Stats, Glossary & Introduction                        |
++--------------+---------------------------------------------------------------+
 
 ### Assignment Guidelines from Canvas
 
@@ -71,7 +53,39 @@ author:
 -   **Summary (1-2 pages)**\
     Summarize your key findings and highlight the main takeaways from your EDA. Describe the next steps for your project, including how the insights gained from EDA will inform your choice of data modeling techniques for the main analysis. Briefly outline which techniques you plan to implement next and why.
 
+### General Notes
+
+-   Metadata EDA
+
+    -   The factors we mentioned in our proposals (ie age, sex, geography/ethnicity, diet, antibiotics, etc)
+
+        -   For geography, the top 3 affected countries by CRC are represented in our data set, which is good. We should note that we are missing representations from certain continenets
+
+-   Taxa vs pathways
+
+    -   what we can do now (personal machines) vs what we need to do later on the HPC cluster (Sol)
+
+-   Data Availability vs Limitations
+
+    -   What does the whole cMD3 offer in its standardized data, including how Bioconductor data works (`summarizedExperiments` vs `TreeSummarizedExperiments`)?
+
+    -   What remains and what gets lost once we filter it with our exclusionary criteria?
+
 ------------------------------------------------------------------------
+
+```{r, echo=FALSE}
+#| label: Setup
+source("Qualifying_Studies_List.R")
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(knitr)
+  library(kableExtra)
+  library(mosaic)
+  library(ggplot2)
+  library(knitr)
+  library(patchwork)
+})
+```
 
 ### Introduction
 
@@ -101,11 +115,11 @@ Yada Yada Yada
 
 ### EDA
 
-##### Summary Statistics
+#### Summary Statistics
 
-##### Cory Add Subheading Here
+#### Cory Add Subheading Here
 
-##### Kaitlyn add Subheading Here
+#### Age and Gender (Kaitlyn)
 
 ### Limitations
 

@@ -12,12 +12,12 @@ suppressPackageStartupMessages({
 #str(sampleMetadata)
 ################################################################################
 ## ---- 2) Quick environment sanity check
-cat("\n=== Session Info ===\n")
-cat("R:", R.version.string, "\n")
-cat("Bioc:", as.character(BiocManager::version()), "\n")
-cat("Library paths:\n")
-print(.libPaths())
-cat("\ncuratedMetagenomicData:", as.character(packageVersion("curatedMetagenomicData")), "\n\n")
+#cat("\n=== Session Info ===\n")
+#cat("R:", R.version.string, "\n")
+#cat("Bioc:", as.character(BiocManager::version()), "\n")
+#cat("Library paths:\n")
+#print(.libPaths())
+#cat("\ncuratedMetagenomicData:", as.character(packageVersion("curatedMetagenomicData")), "\n\n")
 
 sampleMetadata <- sampleMetadata %>% 
   mutate(
