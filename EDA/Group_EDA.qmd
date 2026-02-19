@@ -8,21 +8,70 @@ author:
     - name: Jacob Anderson
 ---
 
-### Delete Before Submitting
+# Delete Before Submitting
 
-+---------+---------------------------------------------------------------+
-| Student | Assignment                                                    |
-+=========+===============================================================+
-| Cory    | Country & Category                                            |
-+---------+---------------------------------------------------------------+
-| Kaitlyn | Age & Sex                                                     |
-|         |                                                               |
-|         | Data Availability Table (Show's what cMD has from each study) |
-+---------+---------------------------------------------------------------+
-| Faith   | Limitations (Missing Data, Pop size, etc.)                    |
-+---------+---------------------------------------------------------------+
-| Jacob   | Summary Stats, Glossary & Introduction                        |
-+---------+---------------------------------------------------------------+
++------------+---------------------------------------------------------------+
+| Student    | Assignment                                                    |
++============+===============================================================+
+| Cory       | Country & Category                                            |
++------------+---------------------------------------------------------------+
+| Kaitlyn    | Age & Sex                                                     |
+|            |                                                               |
+|            | Data Availability Table (Show's what cMD has from each study) |
++------------+---------------------------------------------------------------+
+| Faith      | Limitations (Missing Data, Pop size, etc.)                    |
++------------+---------------------------------------------------------------+
+| Jacob      | Summary Stats, Glossary & Introduction                        |
++------------+---------------------------------------------------------------+
+
+## General Notes
+
+-   Metadata EDA
+
+    -   The factors we mentioned in our proposals (ie age, sex, geography/ethnicity, diet, antibiotics, etc)
+
+        -   For geography, the top 3 affected countries by CRC are represented in our data set, which is good. We should note that we are missing representations from certain continenets
+
+-   Taxa vs pathways
+
+    -   what we can do now (personal machines) vs what we need to do later on the HPC cluster (Sol)
+
+-   Data Availability vs Limitations
+
+    -   What does the whole cMD3 offer in its standardized data, including how Bioconductor data works (`summarizedExperiments` vs `TreeSummarizedExperiments`)?
+
+    -   What remains and what gets lost once we filter it with our exclusionary criteria?
+
+### Assignment Guidelines from Canvas
+
+[**Step 1: EDA Objectives & Preparing data**]{.underline}
+
+-   define at least 3 EDA objectives to investigate (necessary variables? distributions conducive to modelling? data quality issues? is data suitable? representative of population?)
+
+-   There's a document available about what's good to do for EDA on canvas that we can look at if needed
+
+[**Step 2: Conduct EDA**]{.underline}
+
+-   Plots/visualizations, summary stats, tables
+
+-   document findings clearly
+
+-   Code, additional plots & tables that aren't the main talking points can be included in an appendix section.
+
+[**Step 3: EDA Report (Single spaced, 12 pt. font)**]{.underline}
+
+-   **Introduction to Data (1-2 page)**\
+    Provide an overview of your dataset, including its source (with relevant links), purpose, and your rationale for selecting it. Clearly state your EDA objectives and briefly describe the EDA methods used. Explain the importance of EDA in the context of your overall project.
+
+-   **Exploratory Data Analysis (4-5 pages)**\
+    This is the core of your report. Present your findings using relevant summary statistics, tables, and visualizations. Ensure each EDA objective is addressed clearly and supported by appropriate evidence from your analysis.
+
+    -   Flow of this section will be important. We can play with the flow once everyone's section is complete.
+
+-   **Summary (1-2 pages)**\
+    Summarize your key findings and highlight the main takeaways from your EDA. Describe the next steps for your project, including how the insights gained from EDA will inform your choice of data modeling techniques for the main analysis. Briefly outline which techniques you plan to implement next and why.
+
+------------------------------------------------------------------------
 
 ### Introduction
 
