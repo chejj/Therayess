@@ -1,0 +1,46 @@
+---
+title: "Metagenomic EDA of Fecal Samples"
+format: pdf
+author:
+    - name: Kaitlyn Schisler
+    - name: Cory Spern
+    - name: Faith Shipman
+    - name: Jacob Anderson
+---
+
+### Delete Before Submitting
+| Student | Assignment                                 |
+|---------|--------------------------------------------|
+| Cory    | Country & Category                         |
+| Kaitlyn | Age & Sex                                  |
+| Faith   | Limitations (Missing Data, Pop size, etc.) |
+| Jacob   | Summary Stats, Glossary & Introduction     |
+
+### Introduction
+
+
+### Glossary
+Yada Yada Yada
+
+##### Diagnostic Categories
+| Abbreviation | Description                                                                 |
+|--------------|-----------------------------------------------------------------------------|
+| HC           | Healthy control                                                            |
+| PA           | Polyp / adenoma                                                            |
+| PA+          | Polyp / adenoma with comorbidities                                         |
+| CRC          | Colorectal cancer                                                          |
+| CRC-H        | History of colorectal cancer with resection                                |
+| CRC+         | Colorectal cancer with comorbidities                                       |
+| Other        | Any diagnosed disease without current or history of CRC-related growths    |
+
+### EDA
+
+##### Summary Statistics
+
+##### Cory Add Subheading Here
+
+##### Kaitlyn add Subheading Here
+
+### Limitations
+
+### References
