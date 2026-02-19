@@ -575,7 +575,7 @@ qualifying_studies %>%
   # Labeling   
   #---------   
   ggtitle("Distribution of BMI by CRC Progression Classifier") +   
-  ylab("BMI") +    xlab("CRC Progression Classifiers")  
+  ylab("BMI") +    xlab("CRC Progression \nClassifiers")  
 
 # BMI and Age Colored by CRC Progression 
 ########################################
