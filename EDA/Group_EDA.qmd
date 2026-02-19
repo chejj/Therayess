@@ -1,6 +1,7 @@
 ---
 title: "Metagenomic EDA of Fecal Samples"
 format: pdf
+bibliography: references.bib
 author:
     - name: Kaitlyn Schisler
     - name: Cory Spern
