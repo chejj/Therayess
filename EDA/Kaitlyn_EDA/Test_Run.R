@@ -33,4 +33,3 @@ for (type in focus) {   # Loop through what we want to focus on
 class(ThomasAM2018a_list)
 length(ThomasAM2018a_list)
 head(ThomasAM2018a_list)
-
