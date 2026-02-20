@@ -1,0 +1,177 @@
+---
+title: "Metagenomic EDA of Fecal Samples - Appendix"
+format: pdf
+
+author: 
+  - name: Kaitlyn Schisler
+  - name: Cory Spern
+  - name: Faith Shipman
+  - name: Jacob Anderson
+---
+
+```{r, echo=FALSE}
+#| label: Setup
+source("Qualifying_Studies_List.R")
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(knitr)
+  library(kableExtra)
+  library(mosaic)
+  library(ggplot2)
+  library(grid)
+  library(gridExtra)
+  library(knitr)
+  library(patchwork)
+  library(tidyr)
+})
+
+progression_order <- c(
+  "Other", 
+  "HC",
+  "PA",
+  "PA+",
+  "PA-M",
+  "CRC",
+  "CRC+",
+  "CRC-H",
+  "CRC-M"
+)
+
+progression_colors <- c(
+  "HC" = "#539deb",
+  "PA" = "#e4e85b",
+  "PA+" = "#e8a25b",
+  "CRC" = "#cf1919",
+  "CRC+" = "#8f0000",
+  "CRC-M" = "#4d0404",
+  "CRC-H" = "#520f76",
+  "Other" = "#aaa3a3"
+)
+
+qualifying_studies <- qualifying_studies %>% 
+  mutate(
+    disease_class = factor(disease_class, levels = progression_order)
+  )
+```
+
+## Table of Contents
+
+1.  Summary Tables & Related Code
+
+    1.  
+
+2.  Supplemental Visualizations & Related Code
+
+    1.  
+
+3.  Bibliography [***(here or at the end of our document?)***]{.underline}
+
+## Appendix 1 - Summary Tables 
+
+### 1-A: Age Summary Statistics
+
+```{r}
+#| label: Overall Age Summary Statistics
+# Stats Setup
+#############
+age_overall <- qualifying_studies %>% 
+  # Summary Stats
+  # -------------
+  summarize(
+    n = sum(!is.na(age)), 
+    mean = mean(age, na.rm = TRUE), 
+    sd = sd(age, na.rm = TRUE),
+    median = median(age, na.rm = TRUE),
+    Q1 = quantile(age, 0.25, na.rm = TRUE),
+    Q3 = quantile(age, 0.75, na.rm = TRUE)
+  )  %>%
+  # Make Vertical Table
+  # -------------------
+  pivot_longer(
+    everything(),
+    names_to = "Statistic",
+    values_to = "Value"
+  ) %>% 
+  mutate(Statistic = recode(Statistic,
+  n = "N",
+  mean = "Mean",
+  sd = "Standard Deviation",
+  median = "Median",
+  Q1 = "First Quartile (Q1)",
+  Q3 = "Third Quartile (Q3)"
+))
+
+# Kable Table
+#############
+age_overall %>% 
+  kbl(
+    col.names = c("Statistic", "Value"),
+    caption = "Overall Age Summary",
+    digits = 2,
+    format = "latex"
+  ) %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(1, bold = TRUE)
+```
+
+### 1-B: Age by Gender Summary Statistics
+
+```{r}
+#| label: Age by Gender
+# ---
+
+# Stats Setup
+#############
+age_x_gender <- qualifying_studies %>% 
+  group_by(gender) %>% 
+  summarize(
+    n = n(), 
+    mean = mean(age, na.rm = TRUE), 
+    sd = sd(age, na.rm = TRUE),
+    median = median(age, na.rm = TRUE),
+    Q1 = quantile(age, 0.25, na.rm = TRUE),
+    Q3 = quantile(age, 0.75, na.rm = TRUE),
+    .groups = "drop"
+  ) %>% 
+  mutate(
+    pct = 100 * n / sum(n),
+    `N (%)` = sprintf("%d (%.1f%%)", n, pct)
+  ) 
+
+# Table Setup
+#############
+age_x_gender %>% 
+  select(gender, `N (%)`, mean, sd, median, Q1, Q3) %>%
+  kbl(
+    col.names = c("Gender", "N (%)", "Mean", "Standard Deviation",
+                  "Median", "Q1", "Q3"),
+      caption = "Age Summary by Gender", format = "html", digits = 2) %>%
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T)
+
+```
+
+## Appendix 2 - Supplemental Visualizations
+
+### 2-A: Age Histogram by Gender
+
+```{r}
+#| label: Age Normality Check - Gendered
+
+# Gendered Histogram
+####################
+qualifying_studies %>%
+  # Set Up
+  # ------
+  filter(!is.na(age), !is.na(gender)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = age)) + 
+  geom_histogram(bins = 30, fill = "#539deb", color = "black") +
+  facet_wrap(~gender) +
+  # Labeling
+  #---------
+  labs(title = "Distribution of Age by Gender", x = "Age", y = "Count",) +
+  theme(plot.title = element_text(hjust = 0), 
+        axis.title = element_text(size = 10))
+```
