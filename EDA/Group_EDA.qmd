@@ -11,19 +11,19 @@ author:
 
 # Delete Before Submitting
 
-+--------------+---------------------------------------------------------------+
-| Student      | Assignment                                                    |
-+==============+===============================================================+
-| Cory         | Country & Category                                            |
-+--------------+---------------------------------------------------------------+
-| Kaitlyn      | Age & Sex                                                     |
-|              |                                                               |
-|              | Data Availability Table (Show's what cMD has from each study) |
-+--------------+---------------------------------------------------------------+
-| Faith        | Limitations (Missing Data, Pop size, etc.)                    |
-+--------------+---------------------------------------------------------------+
-| Jacob        | Summary Stats, Glossary & Introduction                        |
-+--------------+---------------------------------------------------------------+
++---------+---------------------------------------------------------------+
+| Student | Assignment                                                    |
++=========+===============================================================+
+| Cory    | Country & Category                                            |
++---------+---------------------------------------------------------------+
+| Kaitlyn | Age & Sex                                                     |
+|         |                                                               |
+|         | Data Availability Table (Show's what cMD has from each study) |
++---------+---------------------------------------------------------------+
+| Faith   | Limitations (Missing Data, Pop size, etc.)                    |
++---------+---------------------------------------------------------------+
+| Jacob   | Summary Stats, Glossary & Introduction                        |
++---------+---------------------------------------------------------------+
 
 ### Assignment Guidelines from Canvas
 
@@ -58,7 +58,7 @@ author:
 
 ### General Notes
 
--   Potential flow of our EDA section: Data Availability/Selection → Metadata analysis → Taxa/pathway discussions → Data Limitations (What gets cut out after filtering) → Next Steps
+-   Potential flow of our EDA section: Data Availability & Selection → Metadata Analysis → Taxa & Pathway Analysis → Data Limitations
 
     -   Data Availability
 
@@ -80,11 +80,13 @@ author:
 
         -   what we can do now (personal machines) vs what we need to do later on the HPC cluster (Sol)
 
-    -    Data Limitations
+    -   Data Limitations
 
-        -   What gets lost once we filter it with our exclusionary criteria?
+    ```         
+    -   What gets lost once we filter it with our exclusionary criteria?
 
-        -   What would be unable to answer with what we have, and what gaps would remain to be filled?
+    -   What would be unable to answer with what we have, and what gaps would remain to be filled?
+    ```
 
 ------------------------------------------------------------------------
 
@@ -141,23 +143,15 @@ Yada Yada Yada
 
 ##### Diagnostic Categories
 
-+--------------+-------------------------------------------------------------------------+
-| Abbreviation | Description                                                             |
-+==============+=========================================================================+
-| HC           | Healthy control                                                         |
-+--------------+-------------------------------------------------------------------------+
-| PA           | Polyp / adenoma                                                         |
-+--------------+-------------------------------------------------------------------------+
-| PA+          | Polyp / adenoma with comorbidities                                      |
-+--------------+-------------------------------------------------------------------------+
-| CRC          | Colorectal cancer                                                       |
-+--------------+-------------------------------------------------------------------------+
-| CRC-H        | History of colorectal cancer with resection                             |
-+--------------+-------------------------------------------------------------------------+
-| CRC+         | Colorectal cancer with comorbidities                                    |
-+--------------+-------------------------------------------------------------------------+
-| Other        | Any diagnosed disease without current or history of CRC-related growths |
-+--------------+-------------------------------------------------------------------------+
+| Abbreviation | Description |
+|----|----|
+| HC | Healthy control |
+| PA | Polyp / adenoma |
+| PA+ | Polyp / adenoma with comorbidities |
+| CRC | Colorectal cancer |
+| CRC-H | History of colorectal cancer with resection |
+| CRC+ | Colorectal cancer with comorbidities |
+| Other | Any diagnosed disease without current or history of CRC-related growths |
 
 ### EDA
 
