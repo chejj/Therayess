@@ -127,6 +127,9 @@ age_overall %>%
 ```{r}
 #| label: Age by Gender
 # ---
+gender.table <- table(qualifying_studies$gender)
+prop.table(gender.table)
+
 # Stats Setup
 #############
 age_x_gender <- qualifying_studies %>% 

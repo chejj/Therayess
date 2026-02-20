@@ -1,7 +1,6 @@
 ---
 title: "Metagenomic EDA of Fecal Samples"
 format: pdf
-bibliography: references.bib
 author:
     - name: Kaitlyn Schisler
     - name: Cory Spern
@@ -82,11 +81,9 @@ author:
 
     -   Data Limitations
 
-    ```         
-    -   What gets lost once we filter it with our exclusionary criteria?
+        -   What gets lost once we filter it with our exclusionary criteria?
 
-    -   What would be unable to answer with what we have, and what gaps would remain to be filled?
-    ```
+        -   What would be unable to answer with what we have, and what gaps would remain to be filled?
 
 ------------------------------------------------------------------------
 
@@ -101,6 +98,8 @@ suppressPackageStartupMessages({
   library(kableExtra)
   library(mosaic)
   library(ggplot2)
+  library(grid)
+  library(gridExtra)
   library(knitr)
   library(patchwork)
   library(tidyr)
@@ -167,59 +166,36 @@ Yada Yada Yada
 
 #### Metadata Analysis (Kaitlyn)
 
--   Age, gender, country/location, disease stage/location/classifier, BMI, etc
+Of great benefit to having the cMD3 database is the standardization of the metadata, allowing for the analysis of potential confounding variables for biases and major discrepancies in the data that may influence the results and interpretations downstream. With prior evidence supporting age, gender, diet, geographical location, BMI, and drinking and smoking habits are all factors that may influence the relative risk of CRC (SOURCE), they are important variables to consider in our initial EDA, checking for bias in distribution and sources of significance.
 
-With prior evidence supporting that older age and male gender are correlated to higher rates of incidence and mortality of CRC (SOURCE), they are important variables to consider in our own initial EDA, checking for bias in distribution. To do this, normality will be examined, both with age as a continuous variable and grouped by decade. This is considered both with the sexes grouped as one as well as separated to observe for major discrepancies in the data that may influence the results and interpretations downstream.
+##### Normality and Summary Statistics
 
-##### Normality
+All samples included contain information regarding the age, which is important considering it being one of the factors in CRC screening and preventative care (SOURCE). Summary statistics were conducted (Appendix 1-A), showing a mean age of 59, standard deviation of 14.75, and median of 63, suggesting a skew in this continuous variable. When faceted by gender (Appendix 1-B), aside from the proportion of males and females being statistically different from each other (41.1% female, **CALCULATE P VALUE?**), the median, mean, and quartiles are not remarkably different. A quantile-quantile (QQ) plot (Figure 1-A) and histogram (Figure 1-B) were generated to corroborate this information, checking for extreme skewedness. These show that while there is a slight left tailed skew in age with a bimodal pattern , it is not to an extreme that would harm our final model detrimentally. Random Forest models are robust to skew (SOURCE). Skew and variance of age was also checked between the sexes , which can be found in the supplementary visualizations (Appendix-2).
 
 ```{r, echo=FALSE}
 #| label: Normality Check Age Plain
 # ---
 
-# Stats Setup
-#############
-age_overall <- qualifying_studies %>% 
-  summarize(
-    n = sum(!is.na(age)), 
-    mean = mean(age, na.rm = TRUE), 
-    sd = sd(age, na.rm = TRUE),
-    median = median(age, na.rm = TRUE),
-    Q1 = quantile(age, 0.25, na.rm = TRUE),
-    Q3 = quantile(age, 0.75, na.rm = TRUE)
-  )  %>%
-  pivot_longer(
-    cols = everything(),
-    names_to = "Statistic",
-    values_to = "Value"
-  )
-
-# Table Setup
-#############
-normality1 <- age_overall %>% 
-  kbl(col.names = c("Statistic", "Value"),
-      caption = "Overall Age Summary", digits = 2,  format = "html") %>%
-  kable_styling(full_width = F) %>% 
-  column_spec(1, bold = T)
-
 # QQPlot
 ########
-normality2 <- qualifying_studies %>% 
+normality1 <- qualifying_studies %>% 
   # Set Up
   # ------
   filter(!is.na(age)) %>%
   # Plotting
   # --------
   ggplot(aes(sample = age)) + 
-  geom_qq() + 
+  geom_qq(size = 1, alpha = 0.8) + 
   geom_qq_line() +
   # Labeling
   #---------
-  ggtitle("QQ Plot of Age")
+  labs(title = "QQ Plot of Age") +
+  theme(plot.title = element_text(hjust = 0, size = 10), 
+        axis.title = element_text(size = 10))
 
 # Histogram
 ###########
-normality3 <- qualifying_studies %>%
+normality2 <- qualifying_studies %>%
   # Set Up
   # ------
   filter(!is.na(age)) %>%
@@ -229,48 +205,29 @@ normality3 <- qualifying_studies %>%
   geom_histogram(bins=20) + 
   # Labeling
   #---------
-  ggtitle("Distribution of Age") +
-  xlab("Age")
+  labs(title = "Distribution of Age", x = "Age", y = "Count") +
+  theme(plot.title = element_text(hjust = 0, size = 10), 
+        axis.title = element_text(size = 10))
+
+# Display
+#########
 
 normality_caption <- str_wrap(
   "(A) QQ plot showing slight deviation from the normality line, indicating mild skew. 
    (B) Histogram demonstrating a bimodal age distribution with a secondary peak near 25 years and a primary peak near 60 years.",
-  width = 120
+  width = 95 # maximum width
 )
 
-# Display
-#########
-normality1
-
-normality2 / normality3 +
+(normality1 | normality2) +
   plot_annotation(
     title = "Figure 1: Overall Age Normality Check",
     tag_levels = "A",
     caption = normality_caption
-  ) &
+  ) +
   theme(
-    plot.title = element_text(hjust = 0),
-    plot.caption = element_text(hjust = 0)
+    plot.title = element_text(hjust = 0, size = 11),
+    plot.caption = element_text(hjust = 0, size = 8)
   )
-```
-
-```{r}
-#| label: Age Normality Check: Gendered
-# Gendered Histogram
-####################
-qualifying_studies %>%
-  # Set Up
-  # ------
-  filter(!is.na(age), !is.na(gender)) %>%
-  # Plotting
-  # --------
-  ggplot(aes(x = age)) + 
-  geom_histogram(bins = 30, fill = "#539deb", color = "black") +
-  facet_wrap(~gender) +
-  # Labeling
-  #---------
-  ggtitle("Distribution of Age") +
-  labs(x = "Age", y = "Count")
 ```
 
 #### Taxa & Pathway Analysis (Cory)
