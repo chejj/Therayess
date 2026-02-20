@@ -46,6 +46,8 @@ author:
 -   **Introduction to Data (1-2 page)**\
     Provide an overview of your dataset, including its source (with relevant links), purpose, and your rationale for selecting it. Clearly state your EDA objectives and briefly describe the EDA methods used. Explain the importance of EDA in the context of your overall project.
 
+    -   Pull from methods section from proposal/revised proposal and the project statement, good depth there on selection of the data and why we chose the data/methods.
+
 -   **Exploratory Data Analysis (4-5 pages)**\
     This is the core of your report. Present your findings using relevant summary statistics, tables, and visualizations. Ensure each EDA objective is addressed clearly and supported by appropriate evidence from your analysis.
 
@@ -56,21 +58,37 @@ author:
 
 ### General Notes
 
--   Metadata EDA
+-   Potential flow of our EDA section: Data Availability & Selection → Metadata Analysis → Taxa & Pathway Analysis → Data Limitations
 
-    -   The factors we mentioned in our proposals (ie age, sex, geography/ethnicity, diet, antibiotics, etc)
+    -   Data Availability
 
-        -   For geography, the top 3 affected countries by CRC are represented in our data set, which is good. We should note that we are missing representations from certain continenets
+        -   What does the whole cMD3 offer in its standardized data, including how Bioconductor data works (`summarizedExperiments` vs `TreeSummarizedExperiments`)?
 
--   Taxa vs pathways
+        -   What data remains, what could be answered, what can still be explored?
 
-    -   what we can do now (personal machines) vs what we need to do later on the HPC cluster (Sol)
+        -   ***Our original plan was to include metastases, which our data set has none so that is no longer possible***, so that could be mentioned here in this EDA section.
 
--   Data Availability vs Limitations
+    -   Metadata EDA
 
-    -   What does the whole cMD3 offer in its standardized data, including how Bioconductor data works (`summarizedExperiments` vs `TreeSummarizedExperiments`)?
+        -   The factors we mentioned in our proposals (ie age, sex, geography/ethnicity, diet, antibiotics, etc)
 
-    -   What remains and what gets lost once we filter it with our exclusionary criteria?
+            -   What has too little to give real meaning behind trends we see?
+
+        -   For geography, the top 3 affected countries by CRC are represented in our data set, which is good. We should note that we are missing representations from certain continents
+
+    -   Taxa vs pathways
+
+        -   what we can do now (personal machines) vs what we need to do later on the HPC cluster (Sol)
+
+    -   Data Limitations
+
+    ```         
+    -   What gets lost once we filter it with our exclusionary criteria?
+
+    -   What would be unable to answer with what we have, and what gaps would remain to be filled?
+    ```
+
+------------------------------------------------------------------------
 
 ------------------------------------------------------------------------
 
@@ -85,7 +103,36 @@ suppressPackageStartupMessages({
   library(ggplot2)
   library(knitr)
   library(patchwork)
+  library(tidyr)
 })
+
+progression_order <- c(
+  "Other", 
+  "HC",
+  "PA",
+  "PA+",
+  "PA-M",
+  "CRC",
+  "CRC+",
+  "CRC-H",
+  "CRC-M"
+)
+
+progression_colors <- c(
+  "HC" = "#539deb",
+  "PA" = "#e4e85b",
+  "PA+" = "#e8a25b",
+  "CRC" = "#cf1919",
+  "CRC+" = "#8f0000",
+  "CRC-M" = "#4d0404",
+  "CRC-H" = "#520f76",
+  "Other" = "#aaa3a3"
+)
+
+qualifying_studies <- qualifying_studies %>% 
+  mutate(
+    disease_class = factor(disease_class, levels = progression_order)
+  )
 ```
 
 ### Introduction
@@ -114,14 +161,122 @@ Yada Yada Yada
 | Other        | Any diagnosed disease without current or history of CRC-related growths |
 +--------------+-------------------------------------------------------------------------+
 
-### EDA
+### Exploratory Data Analysis
 
-#### Summary Statistics
+#### Data Availability
 
-#### Cory Add Subheading Here
+#### Metadata Analysis (Kaitlyn)
 
-#### Age and Gender (Kaitlyn)
+-   Age, gender, country/location, disease stage/location/classifier, BMI, etc
 
-### Limitations
+With prior evidence supporting that older age and male gender are correlated to higher rates of incidence and mortality of CRC (SOURCE), they are important variables to consider in our own initial EDA, checking for bias in distribution. To do this, normality will be examined, both with age as a continuous variable and grouped by decade. This is considered both with the sexes grouped as one as well as separated to observe for major discrepancies in the data that may influence the results and interpretations downstream.
+
+##### Normality
+
+```{r, echo=FALSE}
+#| label: Normality Check Age Plain
+# ---
+
+# Stats Setup
+#############
+age_overall <- qualifying_studies %>% 
+  summarize(
+    n = sum(!is.na(age)), 
+    mean = mean(age, na.rm = TRUE), 
+    sd = sd(age, na.rm = TRUE),
+    median = median(age, na.rm = TRUE),
+    Q1 = quantile(age, 0.25, na.rm = TRUE),
+    Q3 = quantile(age, 0.75, na.rm = TRUE)
+  )  %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "Statistic",
+    values_to = "Value"
+  )
+
+# Table Setup
+#############
+normality1 <- age_overall %>% 
+  kbl(col.names = c("Statistic", "Value"),
+      caption = "Overall Age Summary", digits = 2,  format = "html") %>%
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T)
+
+# QQPlot
+########
+normality2 <- qualifying_studies %>% 
+  # Set Up
+  # ------
+  filter(!is.na(age)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(sample = age)) + 
+  geom_qq() + 
+  geom_qq_line() +
+  # Labeling
+  #---------
+  ggtitle("QQ Plot of Age")
+
+# Histogram
+###########
+normality3 <- qualifying_studies %>%
+  # Set Up
+  # ------
+  filter(!is.na(age)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = age)) + 
+  geom_histogram(bins=20) + 
+  # Labeling
+  #---------
+  ggtitle("Distribution of Age") +
+  xlab("Age")
+
+normality_caption <- str_wrap(
+  "(A) QQ plot showing slight deviation from the normality line, indicating mild skew. 
+   (B) Histogram demonstrating a bimodal age distribution with a secondary peak near 25 years and a primary peak near 60 years.",
+  width = 120
+)
+
+# Display
+#########
+normality1
+
+normality2 / normality3 +
+  plot_annotation(
+    title = "Figure 1: Overall Age Normality Check",
+    tag_levels = "A",
+    caption = normality_caption
+  ) &
+  theme(
+    plot.title = element_text(hjust = 0),
+    plot.caption = element_text(hjust = 0)
+  )
+```
+
+```{r}
+#| label: Age Normality Check: Gendered
+# Gendered Histogram
+####################
+qualifying_studies %>%
+  # Set Up
+  # ------
+  filter(!is.na(age), !is.na(gender)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = age)) + 
+  geom_histogram(bins = 30, fill = "#539deb", color = "black") +
+  facet_wrap(~gender) +
+  # Labeling
+  #---------
+  ggtitle("Distribution of Age") +
+  labs(x = "Age", y = "Count")
+```
+
+#### Taxa & Pathway Analysis (Cory)
+
+#### Data Limitations
+
+### Conclusion
 
 ### References

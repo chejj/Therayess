@@ -15,6 +15,7 @@ suppressPackageStartupMessages({
   library(knitr)
   library(kableExtra)
   library(mosaic)
+  library(tidyr)
 })
 
 progression_order <- c(
@@ -105,15 +106,18 @@ age_overall <- qualifying_studies %>%
     median = median(age, na.rm = TRUE),
     Q1 = quantile(age, 0.25, na.rm = TRUE),
     Q3 = quantile(age, 0.75, na.rm = TRUE)
-  ) 
+  )  %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "Statistic",
+    values_to = "Value"
+  )
 
 # Table Setup
 #############
 age_overall %>% 
-  kbl(col.names = c("n", "Mean", 
-                    "Standard Deviation", "Median", 
-                    "Q1", "Q3"),
-      caption = "Overall Age Summary", format = "html") %>%
+  kbl(col.names = c("Statistic", "Value"),
+      caption = "Overall Age Summary", digits = 2,  format = "html") %>%
   kable_styling(full_width = F) %>% 
   column_spec(1, bold = T)
 ```
