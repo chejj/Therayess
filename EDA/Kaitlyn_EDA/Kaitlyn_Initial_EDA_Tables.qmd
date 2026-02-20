@@ -1,0 +1,235 @@
+---
+title: "Kaitlyn Initial Metadata EDA cMD3 for CRC Progression"
+format: html
+editor: visual
+---
+
+### Library Load & Setup
+
+```{r}
+#| label: Setup
+# ---
+source("../Qualifying_Studies_List.R")  
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(knitr)
+  library(kableExtra)
+  library(mosaic)
+})
+
+progression_order <- c(
+  "Other", 
+  "HC",
+  "PA",
+  "PA+",
+  "PA-M",
+  "CRC",
+  "CRC+",
+  "CRC-H",
+  "CRC-M"
+)
+
+qualifying_studies <- qualifying_studies %>% 
+  mutate(
+    disease_class = factor(disease_class, levels = progression_order)
+  )
+```
+
+# Ideas of Interest:
+
+## Study Counts
+
+```{r}
+#| label: Study Counts Check, Simple
+# ---
+
+# Setup / Tabling
+#################
+study.table <- table(qualifying_studies$study_name)
+disease.class.table <- table(qualifying_studies$disease_class)
+
+# Beautify
+##########
+study.table %>% 
+  as.data.frame() %>%   # Must be data frame, cannot use filter function on a table
+  filter(Freq > 0) %>%
+  arrange(-Freq) %>% 
+  kbl(col.names = c("Study Name", "Frequency")) %>% 
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T) %>% 
+  footnote(general = "Study name is the last name, first initial, and publication year of the study.\nIf there are multiple with the same format, then a lowercase alphabetical\nletter is also appended.")
+
+
+disease.class.table %>% 
+  as.data.frame() %>%   # Must be data frame, cannot use filter function on a table
+  filter(Freq > 0) %>%
+  kbl(col.names = c("CRC Progression\nClassifier", "Frequency")) %>% 
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T)
+```
+
+```{r}
+#| label: Study Counts Check, Complex
+# --- 
+
+# Setup / Tabling
+#################
+study.disease.class.table <- table(qualifying_studies$study_name,qualifying_studies$disease_class)
+
+# Beautify
+##########
+study.disease.class.table %>% 
+  as.data.frame() %>%
+  filter(Freq > 0) %>% 
+  arrange(Var1, desc(Freq)) %>%
+  kbl(col.names = c("Study Name", "CRC Classifier", "Frequency"),
+      caption = "Counts by Study and CRC Progression Classifier", format = "html") %>%
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T) %>%
+  collapse_rows(columns = 1, valign = "top")
+```
+
+## Age Analysis
+
+```{r}
+#| label: Age Overall
+# ---
+
+# Stats Setup
+#############
+age_overall <- qualifying_studies %>% 
+  summarize(
+    n = sum(!is.na(age)), 
+    mean = mean(age, na.rm = TRUE), 
+    sd = sd(age, na.rm = TRUE),
+    median = median(age, na.rm = TRUE),
+    Q1 = quantile(age, 0.25, na.rm = TRUE),
+    Q3 = quantile(age, 0.75, na.rm = TRUE)
+  ) 
+
+# Table Setup
+#############
+age_overall %>% 
+  kbl(col.names = c("n", "Mean", 
+                    "Standard Deviation", "Median", 
+                    "Q1", "Q3"),
+      caption = "Overall Age Summary", format = "html") %>%
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T)
+```
+
+### Gender
+
+```{r}
+#| label: Age by Gender
+# ---
+# Stats Setup
+#############
+age_x_gender <- qualifying_studies %>% 
+  group_by(gender) %>% 
+  summarize(
+    n = sum(!is.na(age)), 
+    mean = mean(age, na.rm = TRUE), 
+    sd = sd(age, na.rm = TRUE),
+    median = median(age, na.rm = TRUE),
+    Q1 = quantile(age, 0.25, na.rm = TRUE),
+    Q3 = quantile(age, 0.75, na.rm = TRUE)
+  ) 
+
+# Table Setup
+#############
+age_x_gender %>% 
+  kbl(col.names = c("Gender", "n", "Mean", 
+                    "Standard Deviation", "Median", 
+                    "Q1", "Q3"),
+      caption = "Age Summary by Gender", format = "html") %>%
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T)
+```
+
+### Disease Progression Classifier
+
+```{r}
+#| label: Age by CRC Classifier
+# ---
+
+# Stats Setup
+#############
+age_x_class <- qualifying_studies %>% 
+  group_by(disease_class) %>% 
+  summarize(
+    n = sum(!is.na(age)), 
+    mean = mean(age, na.rm = TRUE), 
+    sd = sd(age, na.rm = TRUE),
+    median = median(age, na.rm = TRUE),
+    Q1 = quantile(age, 0.25, na.rm = TRUE),
+    Q3 = quantile(age, 0.75, na.rm = TRUE)
+  ) 
+
+# Table Setup
+#############
+age_x_class %>% 
+  kbl(col.names = c("CRC Progression \nClassifier", "n", "Mean", 
+                    "Standard Deviation", "Median", 
+                    "Q1", "Q3"),
+      caption = "Age Summary by CRC Progression", format = "html") %>%
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T)
+
+
+```
+
+## Geography & Ethnicity
+
+Note: We actually have no information on the ethnicity of our study subjects in the filtered data set, so we would need to assume that their ethnicity matches the majority of the country they are documented from (Japan, USA, etc.). While not perfect, it is likely that they active location/geography influences their microbiome more.
+
+### Overall
+
+```{r}
+#| label: Country and City Tables
+# ---
+
+# Country Stats Setup
+#####################
+country_overall <- qualifying_studies %>% 
+  group_by(country) %>% 
+  summarize(
+    n = sum(!is.na(country))
+  ) %>% 
+  arrange(desc(n))
+
+# Country Table Setup
+#####################
+country_overall %>% 
+  kbl(col.names = c("Country", "n"),
+      caption = "Country Overall Summary (NATO country code, trigram)", 
+      format = "html") %>%
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T)
+
+
+# Location Stats Setup
+#####################
+location_overall <- qualifying_studies %>% 
+  group_by(location) %>% 
+  summarize(
+    n = sum(!is.na(location))
+  ) %>% 
+  filter(n>0) %>% 
+  arrange(desc(n))
+
+# Location Table Setup
+#####################
+location_overall %>% 
+  kbl(col.names = c("Location (City)", "n"),
+      caption = "Location Overall Summary (City)", 
+      format = "html") %>%
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T)
+```
+
+## Diet
+
+## BMI
+
+## Smoking & Alcohol

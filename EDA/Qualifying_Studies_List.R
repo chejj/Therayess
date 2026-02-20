@@ -5,17 +5,19 @@ suppressPackageStartupMessages({
   library(curatedMetagenomicData)
   library(dplyr)
   library(stringr)
+  library(knitr)
+  library(kableExtra)
 })
 #View(sampleMetadata)
-str(sampleMetadata)
+#str(sampleMetadata)
 ################################################################################
 ## ---- 2) Quick environment sanity check
-cat("\n=== Session Info ===\n")
-cat("R:", R.version.string, "\n")
-cat("Bioc:", as.character(BiocManager::version()), "\n")
-cat("Library paths:\n")
-print(.libPaths())
-cat("\ncuratedMetagenomicData:", as.character(packageVersion("curatedMetagenomicData")), "\n\n")
+#cat("\n=== Session Info ===\n")
+#cat("R:", R.version.string, "\n")
+#cat("Bioc:", as.character(BiocManager::version()), "\n")
+#cat("Library paths:\n")
+#print(.libPaths())
+#cat("\ncuratedMetagenomicData:", as.character(packageVersion("curatedMetagenomicData")), "\n\n")
 
 sampleMetadata <- sampleMetadata %>% 
   mutate(
@@ -57,26 +59,36 @@ qualifying_studies <- sampleMetadata %>%
   mutate(
     disease_class = factor(
       disease_class,
-      levels = c("HC", "PA", "PA+", "CRC", "CRC+", "CRC-M", "CRC-H")
+      levels = c(
+        "Other", 
+        "HC",
+        "PA",
+        "PA+",
+        "PA-M",
+        "CRC",
+        "CRC+",
+        "CRC-H",
+        "CRC-M"
+      )
     )
   ) %>% 
   mutate(
     age_decade = if_else(age_decade == "10-19" | age_decade == "20-29", "18-29", age_decade)
   ) %>% 
   select(
-    study_name, subject_id, antibiotics_current_use,
+    study_name, sample_id, subject_id, antibiotics_current_use,
     age, age_category, age_decade, gender, BMI, smoker, ever_smoker, alcohol, alcohol_numeric, diet, country, location, population,
     study_condition, disease, disease_class, disease_subtype, disease_stage, disease_location, days_from_first_collection, days_after_onset,
     sequencing_platform, DNA_extraction_kit, 
     cholesterol, wbc, rbc, stool_texture)
-View(qualifying_studies)
-cat("\n=== Qualifying Studies ===\n")
-cat("Qualifying Studies samples (all):", nrow(qualifying_studies), "\n")
-cat("Qualifying Studies samples (healthy):", qualifying_studies %>% filter(disease == "healthy") %>% nrow(), "\n")
-cat("Qualifying Studies samples (disease):", qualifying_studies %>% filter(disease != "healthy") %>% nrow(), "\n")
-cat("Qualifying Studies:", length(unique(qualifying_studies$study_name)), "\n")
-cat("Study Sample Counts in Qualifying Studies:\n")
-print(head(sort(table(qualifying_studies$study_name), decreasing = TRUE), 15))
-cat("Top diseases in Qualifying Studies:\n")
-print(head(sort(table(qualifying_studies$disease_class), decreasing = TRUE), 35))
+#View(qualifying_studies)
+#cat("\n=== Qualifying Studies ===\n")
+#cat("Qualifying Studies samples (all):", nrow(qualifying_studies), "\n")
+#cat("Qualifying Studies samples (healthy):", qualifying_studies %>% filter(disease == "healthy") %>% nrow(), "\n")
+#cat("Qualifying Studies samples (disease):", qualifying_studies %>% filter(disease != "healthy") %>% nrow(), "\n")
+#cat("Qualifying Studies:", length(unique(qualifying_studies$study_name)), "\n")
+#cat("Study Sample Counts in Qualifying Studies:\n")
+#print(head(sort(table(qualifying_studies$study_name), decreasing = TRUE), 15))
+#cat("Top diseases in Qualifying Studies:\n")
+#print(head(sort(table(qualifying_studies$disease_class), decreasing = TRUE), 35))
 
