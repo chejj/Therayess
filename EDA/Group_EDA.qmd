@@ -11,19 +11,19 @@ author:
 
 # Delete Before Submitting
 
-+---------+---------------------------------------------------------------+
-| Student | Assignment                                                    |
-+=========+===============================================================+
-| Cory    | Country & Category                                            |
-+---------+---------------------------------------------------------------+
-| Kaitlyn | Age & Sex                                                     |
-|         |                                                               |
-|         | Data Availability Table (Show's what cMD has from each study) |
-+---------+---------------------------------------------------------------+
-| Faith   | Limitations (Missing Data, Pop size, etc.)                    |
-+---------+---------------------------------------------------------------+
-| Jacob   | Summary Stats, Glossary & Introduction                        |
-+---------+---------------------------------------------------------------+
++--------------+---------------------------------------------------------------+
+| Student      | Assignment                                                    |
++==============+===============================================================+
+| Cory         | Country & Category                                            |
++--------------+---------------------------------------------------------------+
+| Kaitlyn      | Age & Sex                                                     |
+|              |                                                               |
+|              | Data Availability Table (Show's what cMD has from each study) |
++--------------+---------------------------------------------------------------+
+| Faith        | Limitations (Missing Data, Pop size, etc.)                    |
++--------------+---------------------------------------------------------------+
+| Jacob        | Summary Stats, Glossary & Introduction                        |
++--------------+---------------------------------------------------------------+
 
 ### Assignment Guidelines from Canvas
 
@@ -143,23 +143,31 @@ Yada Yada Yada
 
 ##### Diagnostic Categories
 
-| Abbreviation | Description |
-|----|----|
-| HC | Healthy control |
-| PA | Polyp / adenoma |
-| PA+ | Polyp / adenoma with comorbidities |
-| CRC | Colorectal cancer |
-| CRC-H | History of colorectal cancer with resection |
-| CRC+ | Colorectal cancer with comorbidities |
-| Other | Any diagnosed disease without current or history of CRC-related growths |
++--------------+-------------------------------------------------------------------------+
+| Abbreviation | Description                                                             |
++==============+=========================================================================+
+| HC           | Healthy control                                                         |
++--------------+-------------------------------------------------------------------------+
+| PA           | Polyp / adenoma                                                         |
++--------------+-------------------------------------------------------------------------+
+| PA+          | Polyp / adenoma with comorbidities                                      |
++--------------+-------------------------------------------------------------------------+
+| CRC          | Colorectal cancer                                                       |
++--------------+-------------------------------------------------------------------------+
+| CRC-H        | History of colorectal cancer with resection                             |
++--------------+-------------------------------------------------------------------------+
+| CRC+         | Colorectal cancer with comorbidities                                    |
++--------------+-------------------------------------------------------------------------+
+| Other        | Any diagnosed disease without current or history of CRC-related growths |
++--------------+-------------------------------------------------------------------------+
 
-### EDA
+### Exploratory Data Analysis
 
-#### Summary Statistics
+#### Data Availability
 
-#### Cory Add Subheading Here
+#### Metadata Analysis (Kaitlyn)
 
-#### Age and Gender (Kaitlyn)
+-   Age, gender, country/location, disease stage/location/classifier, BMI, etc
 
 With prior evidence supporting that older age and male gender are correlated to higher rates of incidence and mortality of CRC (SOURCE), they are important variables to consider in our own initial EDA, checking for bias in distribution. To do this, normality will be examined, both with age as a continuous variable and grouped by decade. This is considered both with the sexes grouped as one as well as separated to observe for major discrepancies in the data that may influence the results and interpretations downstream.
 
@@ -265,6 +273,10 @@ qualifying_studies %>%
   labs(x = "Age", y = "Count")
 ```
 
-### Limitations
+#### Taxa & Pathway Analysis (Cory)
+
+#### Data Limitations
+
+### Conclusion
 
 ### References
