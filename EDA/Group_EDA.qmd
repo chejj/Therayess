@@ -170,7 +170,7 @@ Of great benefit to having the cMD3 database is the standardization of the metad
 
 ##### Normality and Summary Statistics
 
-All samples included contain information regarding the age, which is important considering it being one of the factors in CRC screening and preventative care (SOURCE). Summary statistics were conducted (Appendix 1-A), showing a mean age of 59, standard deviation of 14.75, and median of 63, suggesting a skew in this continuous variable. When faceted by gender (Appendix 1-B), aside from the proportion of males and females being statistically different from each other (41.1% female, **CALCULATE P VALUE?**), the median, mean, and quartiles are not remarkably different. A quantile-quantile (QQ) plot (Figure 1-A) and histogram (Figure 1-B) were generated to corroborate this information, checking for extreme skewedness. These show that while there is a slight left tailed skew in age with a bimodal pattern , it is not to an extreme that would harm our final model detrimentally. Random Forest models are robust to skew (SOURCE). Skew and variance of age was also checked between the sexes , which can be found in the supplementary visualizations (Appendix-2).
+All samples included contain information regarding the age, which is important considering it being one of the factors in CRC screening and preventative care (SOURCE). Summary statistics were conducted (Appendix 1-A), showing a mean age of 59, standard deviation of 14.75, and median of 63, suggesting a skew in this continuous variable. When faceted by gender (Appendix 1-B), aside from the proportion of males and females being statistically different from each other (41.1% female, **CALCULATE P VALUE?**), the median, mean, and quartiles are not remarkably different. A quantile-quantile (QQ) plot (Figure 1-A) and histogram (Figure 1-B) were generated to corroborate this information, checking for extreme skewedness. These show that while there is a slight left tailed skew in age with a bimodal pattern , it is not to an extreme that would harm our final model detrimentally. Random Forest models are robust to skew (SOURCE). Skew and variance of age was also checked between the sexes via a faceted histogram, which can be found in the supplementary visualizations (Appendix 2-A).
 
 ```{r, echo=FALSE}
 #| label: Normality Check Age Plain
@@ -225,8 +225,100 @@ normality_caption <- str_wrap(
     caption = normality_caption
   ) +
   theme(
-    plot.title = element_text(hjust = 0, size = 11),
+    plot.title = element_text(hjust = 0, size = 10),
     plot.caption = element_text(hjust = 0, size = 8)
+  )
+```
+
+```{r, echo=FALSE}
+#| label: CRC Progression Classifier Spread
+# ---
+
+# Barplot of age categories: Colored
+####################################
+decade1 <- qualifying_studies %>% 
+  # Set Up 
+  # ------ 
+  filter (!is.na(age_decade)) %>% 
+  # Plotting 
+  # -------- 
+  ggplot(aes(x=age_decade, fill = disease_class)) + 
+  geom_bar() + 
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nClassifiers") + 
+  # Labeling 
+  #--------- 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1, lineheight = 1.1), 
+        axis.title.x = element_text(hjust = 0.5), 
+        plot.title = element_text(size = 11),
+        legend.position = "none") + 
+  labs(
+    title = "Age Distribution By Decade", 
+    x = "Age by Decade", y = "Count")
+
+# Proportion: Age Decade
+###########################
+decade2 <- qualifying_studies %>%
+  # Set Up
+  # ------
+  filter (!is.na(age_decade)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x=age_decade, fill = disease_class)) +
+  geom_bar(position="fill") +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nClassifiers") +
+  # Labeling
+  #---------
+  labs(title = "Proportion of CRC Progression by Age Decade",
+       x = "Age By Decade", y = "Proportion") +
+  theme(axis.text.x = element_text(
+    angle = 30, hjust = 1, lineheight = 1.1), 
+    legend.position = "none", 
+    plot.title = element_text(size = 11)
+  )
+
+# Gendered Barplot: Proportions
+###############################
+decade3 <- qualifying_studies %>%
+  # Set Up
+  # ------
+  filter(!is.na(age_decade), !is.na(gender)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = age_decade, fill = disease_class)) + 
+  geom_bar(position = "fill") +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nClassifiers") +
+  facet_wrap(~gender) +
+  # Labeling
+  #---------
+  labs(title = "Proportion of CRC Progression by Age Decade, \nGrouped by Gender", 
+       x = "Age by Decade", y = "Proportion") +
+  theme(axis.text.x = element_text(angle = 25, hjust = 1, lineheight = 1.1), 
+        legend.position = "none", 
+        plot.title = element_text(size = 12))
+
+# Age by Decade Patchwork
+#########################
+layout1 <- c( # t, l , b = t, r = l
+  area(1, 1, 2, 2), 
+  area(1, 3, 2, 4), 
+  area(3, 1, 4, 4)
+)
+
+#plot(layout1)
+
+decade1 + decade2 + decade3 + plot_layout(design = layout1, guides = "collect") +
+  plot_annotation(
+    title = "Figure 2: CRC Progression Classification Variability",
+    tag_levels = "A",
+    caption = "Placeholder Caption"
+  ) +
+  theme(legend.position = "right", 
+    plot.title = element_text(hjust = 0, size = 10),
+    plot.caption = element_text(hjust = 0, size = 8), 
+    legend.key.size = unit(0.25, "cm")
   )
 ```
 
