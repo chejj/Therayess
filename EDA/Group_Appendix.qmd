@@ -58,13 +58,31 @@ qualifying_studies <- qualifying_studies %>%
 
 1.  Summary Tables & Related Code
 
-    1.  
+    1.  A - Age Summary Statistics
+
+    2.  B - Age by Gender Summary Statistics
+
+    3.  C - Age By Decade Summary Statistics
 
 2.  Supplemental Visualizations & Related Code
 
-    1.  
+    1.   A - Age Histogram Faceted by Gender
 
-3.  Bibliography [***(here or at the end of our document?)***]{.underline}
+3.  Statistical Analyses
+
+    1.  A - CRC Progression Classifier and Age ANOVA
+
+4.  Relevant R Scripts
+
+    1.  A - Dry_Runs.R
+
+5.  Relevant Links
+
+    1.  Project GitHub
+
+    2.  cMD3 Dataset
+
+6.  Bibliography [***(here or at the end of our document?)***]{.underline}
 
 ## Appendix 1 - Summary Tables
 
@@ -108,7 +126,7 @@ age_overall %>%
     col.names = c("Statistic", "Value"),
     caption = "Overall Age Summary",
     digits = 2,
-    format = "latex"
+    format = "html"
   ) %>%
   kable_styling(full_width = FALSE) %>%
   column_spec(1, bold = TRUE)
@@ -151,6 +169,35 @@ age_x_gender %>%
 
 ```
 
+### 1-C: Age by Decade Summary Statistics
+
+```{r}
+#| label: Age by Decade Summary
+# Stats Setup
+#############
+age_decade <- qualifying_studies %>% 
+  # Summary Stats
+  # -------------
+  group_by(age_decade) %>% 
+  summarize(
+  n = n(), 
+  .groups = "drop") %>% 
+  mutate(
+    pct = 100 * n / sum(n),
+    `N (%)` = sprintf("%d (%.1f%%)", n, pct)
+  )
+
+# Kable Table
+#############
+age_decade %>% 
+  select(age_decade, `N (%)`) %>%
+  kbl(
+    col.names = c("Age (Decade)", "N (%)"),
+      caption = "Age Summary by Decade", format = "html", digits = 2) %>%
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T)
+```
+
 ## Appendix 2 - Supplemental Visualizations
 
 ### 2-A: Age Histogram by Gender
@@ -174,4 +221,100 @@ qualifying_studies %>%
   labs(title = "Distribution of Age by Gender", x = "Age", y = "Count",) +
   theme(plot.title = element_text(hjust = 0), 
         axis.title = element_text(size = 10))
+```
+
+### 2-B: Age QQ-Plot (Supports Histogram)
+
+```{r}
+#| label: Age Normality Check - QQ Plot
+
+# QQPlot
+########
+normality1 <- qualifying_studies %>% 
+  # Set Up
+  # ------
+filter(!is.na(age)) %>%
+  # Plotting
+  # --------
+ggplot(aes(sample = age)) + 
+  geom_qq(size = 1, alpha = 0.8) + 
+  geom_qq_line() +
+  # Labeling
+  #---------
+labs(title = "QQ Plot of Age") +
+  theme(plot.title = element_text(hjust = 0, size = 10), 
+        axis.title = element_text(size = 10))
+```
+
+## Appendix 3 - Statistical Analyses
+
+### 3-A: Gender Binomial Test
+
+```{r}
+#| label: Gender Binomial Test
+
+sex_counts <- table(qualifying_studies$gender)
+binom.test(sex_counts["male"],
+           sum(sex_counts),
+           p = 0.5) # assumes 50/50 split in population
+```
+
+### 3-B: CRC Progression Classifier and Age ANOVA
+
+```{r}
+#| label: Age vs CRC Progression ANOVA
+
+age_CRC_ANOVA <- qualifying_studies %>%
+  filter(!is.na(age)) 
+
+age_CRC_ANOVA2 <- aov(age ~ disease_class, data = age_CRC_ANOVA)
+  
+summary(age_CRC_ANOVA2)
+
+TukeyHSD(age_CRC_ANOVA2, conf.level=.95)
+```
+
+### 3-C: Age Decade and CRC Progression Classifier Chi-Squared
+
+```{r}
+#| label: Decade X CRC Classifier Chi Square
+
+chisq.test(table(qualifying_studies$age_decade, qualifying_studies$disease_class))
+```
+
+## Appendix 4 - Relevant R Scripts
+
+### 4-A: Dry_Runs.R
+
+A script used to determine what information was available on our qualifying studies and print to individual text files. Text files can be found on the GitHub for this project in the described file path in the script
+
+```         
+##########
+# Dry Runs
+##########
+# Run Qualifying Studies List
+source("./EDA/Qualifying_Studies_List.R")
+
+# Studies available
+###################
+studies <- qualifying_studies %>%
+  distinct(study_name) %>%
+  pull(study_name)
+print(studies)
+
+# Information Available per Study
+#################################
+for (study in studies) {
+  outfile <- paste0("./EDA/Kaitlyn_EDA/Info_Availability/", study, "_info_availability.txt")
+  writeLines(curatedMetagenomicData(study, dryrun = TRUE), outfile)
+}
+
+# Dry Run
+#########
+
+Test <- curatedMetagenomicData("ThomasAM_2018b.+", 
+                               dryrun = TRUE) # Doesn't download the data
+class(Test)
+length(Test)
+head(Test)
 ```
