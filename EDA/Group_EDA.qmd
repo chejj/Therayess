@@ -250,11 +250,11 @@ decade1 <- qualifying_studies %>%
   #--------- 
   theme(axis.text.x = element_text(angle = 30, hjust = 1, lineheight = 1.1), 
         axis.title.x = element_text(hjust = 0.5), 
-        plot.subtitle = element_text(size = 11),
+        plot.title = element_text(size = 11),
         legend.position = "none") + 
   labs(
-    subtitle = "Age Distribution By Decade: \nCRC Progression Classifier Spread", 
-    x = "Age by Decade")
+    title = "Age Distribution By Decade", 
+    x = "Age by Decade", y = "Count")
 
 # Proportion: Age Decade
 ###########################
@@ -270,11 +270,12 @@ decade2 <- qualifying_studies %>%
                     name = "CRC Progression \nClassifiers") +
   # Labeling
   #---------
-  labs(subtitle = "Proportion of CRC Progression by Age Decade",
+  labs(title = "Proportion of CRC Progression by Age Decade",
        x = "Age By Decade", y = "Proportion") +
   theme(axis.text.x = element_text(
-    angle = 30, hjust = 1, lineheight = 1.1), legend.key.size = unit(0.3, "cm"), 
-    legend.position = "none"
+    angle = 30, hjust = 1, lineheight = 1.1), 
+    legend.position = "none", 
+    plot.title = element_text(size = 11)
   )
 
 # Gendered Barplot: Proportions
@@ -292,10 +293,11 @@ decade3 <- qualifying_studies %>%
   facet_wrap(~gender) +
   # Labeling
   #---------
-  ggtitle("Distribution of Age, Male") +
-  labs(x = "Age by Decade", y = "Proportion") +
+  labs(title = "Proportion of CRC Progression by Age Decade, \nGrouped by Gender", 
+       x = "Age by Decade", y = "Proportion") +
   theme(axis.text.x = element_text(angle = 25, hjust = 1, lineheight = 1.1), 
-        legend.position = "none")
+        legend.position = "none", 
+        plot.title = element_text(size = 12))
 
 # Age by Decade Patchwork
 #########################
@@ -305,9 +307,9 @@ layout1 <- c( # t, l , b = t, r = l
   area(3, 1, 4, 4)
 )
 
-plot(layout1)
+#plot(layout1)
 
-decade1 + decade2 + decade3 + plot_layout(design = layout, guides = "collect") +
+decade1 + decade2 + decade3 + plot_layout(design = layout1, guides = "collect") +
   plot_annotation(
     title = "Figure 2: CRC Progression Classification Variability",
     tag_levels = "A",
@@ -315,7 +317,8 @@ decade1 + decade2 + decade3 + plot_layout(design = layout, guides = "collect") +
   ) +
   theme(legend.position = "right", 
     plot.title = element_text(hjust = 0, size = 10),
-    plot.caption = element_text(hjust = 0, size = 8)
+    plot.caption = element_text(hjust = 0, size = 8), 
+    legend.key.size = unit(0.25, "cm")
   )
 ```
 
