@@ -149,9 +149,34 @@ ggplot(meta_completeness,
     plot.subtitle = element_text(size = 10)
   )
 
-
-
-
+#create ggplot of studies selected and sequencing platform and extraction kit used
+#summary table with counts per study X
+study_tech_summary <- qualifying_studies %>%
+  filter(
+    !is.na(sequencing_platform),
+    !is.na(DNA_extraction_kit)
+  ) %>%
+  count(study_name, sequencing_platform, DNA_extraction_kit)
+    #sanity check lol
+head(study_tech_summary)
+#create ggplot
+ggplot(
+  study_tech_summary,
+  aes(
+    y = study_name,
+    x = n,
+    fill = DNA_extraction_kit
+  )
+) +
+  geom_col() +
+  facet_wrap(~ sequencing_platform, scales = "free_y") +
+  theme_bw() +
+  labs(
+    title = "Sequencing Platforms and DNA Extraction Kits Across CRC-Relevant Studies",
+    x = "Number of samples",
+    y = "Study name",
+    fill = "DNA extraction kit"
+  )
 
 
 
