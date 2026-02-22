@@ -230,7 +230,7 @@ qualifying_studies %>%
 
 # QQPlot
 ########
-normality1 <- qualifying_studies %>% 
+qualifying_studies %>% 
   # Set Up
   # ------
 filter(!is.na(age)) %>%
