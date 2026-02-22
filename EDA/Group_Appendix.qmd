@@ -1,0 +1,507 @@
+---
+title: "Metagenomic EDA of Fecal Samples - Appendix"
+format: pdf
+
+author: 
+  - name: Kaitlyn Schisler
+  - name: Cory Spern
+  - name: Faith Shipman
+  - name: Jacob Anderson
+---
+
+```{r, echo=FALSE}
+#| label: Setup
+source("Qualifying_Studies_List.R")
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(knitr)
+  library(kableExtra)
+  library(mosaic)
+  library(ggplot2)
+  library(grid)
+  library(gridExtra)
+  library(knitr)
+  library(patchwork)
+  library(tidyr)
+})
+
+progression_order <- c(
+  "Other", 
+  "HC",
+  "PA",
+  "PA+",
+  "PA-M",
+  "CRC",
+  "CRC+",
+  "CRC-H",
+  "CRC-M"
+)
+
+progression_colors <- c(
+  "HC" = "#539deb",
+  "PA" = "#e4e85b",
+  "PA+" = "#e8a25b",
+  "CRC" = "#cf1919",
+  "CRC+" = "#8f0000",
+  "CRC-M" = "#4d0404",
+  "CRC-H" = "#520f76",
+  "Other" = "#aaa3a3"
+)
+
+qualifying_studies <- qualifying_studies %>% 
+  mutate(
+    disease_class = factor(disease_class, levels = progression_order)
+  )
+```
+
+## Table of Contents
+
+1.  Summary Tables & Related Code
+
+    1.  A - Age Summary Statistics
+
+    2.  B - Age by Gender Summary Statistics
+
+    3.  C - Age By Decade Summary Statistics
+
+2.  Supplemental Visualizations & Related Code
+
+    1.  A - Age Histogram Faceted by Gender
+
+3.  Statistical Analyses
+
+    1.  A - CRC Progression Classifier and Age ANOVA
+
+4.  Relevant R Scripts
+
+    1.  A - Dry_Runs.R
+
+5.  Relevant Links
+
+    1.  Project GitHub
+
+    2.  cMD3 Dataset
+
+6.  Bibliography [***(here or at the end of our document?)***]{.underline}
+
+## Appendix 1 - Summary Tables
+
+### 1-A: Age Summary Statistics
+
+```{r}
+#| label: Overall Age Summary Statistics
+# Stats Setup
+#############
+age_overall <- qualifying_studies %>% 
+  # Summary Stats
+  # -------------
+  summarize(
+    n = sum(!is.na(age)), 
+    mean = mean(age, na.rm = TRUE), 
+    sd = sd(age, na.rm = TRUE),
+    median = median(age, na.rm = TRUE),
+    Q1 = quantile(age, 0.25, na.rm = TRUE),
+    Q3 = quantile(age, 0.75, na.rm = TRUE)
+  )  %>%
+  # Make Vertical Table
+  # -------------------
+  pivot_longer(
+    everything(),
+    names_to = "Statistic",
+    values_to = "Value"
+  ) %>% 
+  mutate(Statistic = recode(Statistic,
+  n = "N",
+  mean = "Mean",
+  sd = "Standard Deviation",
+  median = "Median",
+  Q1 = "First Quartile (Q1)",
+  Q3 = "Third Quartile (Q3)"
+))
+
+# Kable Table
+#############
+age_overall %>% 
+  kbl(
+    col.names = c("Statistic", "Value"),
+    caption = "Overall Age Summary",
+    digits = 2,
+    format = "html"
+  ) %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(1, bold = TRUE)
+```
+
+### 1-B: Age by Gender Summary Statistics
+
+```{r}
+#| label: Age by Gender
+# ---
+
+# Stats Setup
+#############
+age_x_gender <- qualifying_studies %>% 
+  group_by(gender) %>% 
+  summarize(
+    n = n(), 
+    mean = mean(age, na.rm = TRUE), 
+    sd = sd(age, na.rm = TRUE),
+    median = median(age, na.rm = TRUE),
+    Q1 = quantile(age, 0.25, na.rm = TRUE),
+    Q3 = quantile(age, 0.75, na.rm = TRUE),
+    .groups = "drop"
+  ) %>% 
+  mutate(
+    pct = 100 * n / sum(n),
+    `N (%)` = sprintf("%d (%.1f%%)", n, pct)
+  ) 
+
+# Table Setup
+#############
+age_x_gender %>% 
+  select(gender, `N (%)`, mean, sd, median, Q1, Q3) %>%
+  kbl(
+    col.names = c("Gender", "N (%)", "Mean", "Standard Deviation",
+                  "Median", "Q1", "Q3"),
+      caption = "Age Summary by Gender", format = "html", digits = 2) %>%
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T)
+
+```
+
+### 1-C: Age by Decade Summary Statistics
+
+```{r}
+#| label: Age by Decade Summary
+# Stats Setup
+#############
+age_decade <- qualifying_studies %>% 
+  # Summary Stats
+  # -------------
+  group_by(age_decade) %>% 
+  summarize(
+  n = n(), 
+  .groups = "drop") %>% 
+  mutate(
+    pct = 100 * n / sum(n),
+    `N (%)` = sprintf("%d (%.1f%%)", n, pct)
+  )
+
+# Kable Table
+#############
+age_decade %>% 
+  select(age_decade, `N (%)`) %>%
+  kbl(
+    col.names = c("Age (Decade)", "N (%)"),
+      caption = "Age Summary by Decade", format = "html", digits = 2) %>%
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T)
+```
+
+### 1-D: Country Summary Statistics
+
+```{r}
+#| label: Country Summary Statistics
+
+# Count and Proportion
+######################
+country_overall <- qualifying_studies %>% 
+  # Summary Stats
+  # -------------
+  group_by(country) %>% 
+  summarize(
+  n = n(), 
+  .groups = "drop") %>% 
+  mutate(
+    pct = 100 * n / sum(n),
+    `N (%)` = sprintf("%d (%.1f%%)", n, pct)
+  ) %>% 
+  arrange('Country')
+
+# Kable Table
+#############
+country_overall %>% 
+  select(country, `N (%)`) %>%
+  kbl(
+    col.names = c("Country", "N (%)"),
+      caption = "Country Overall Summary (NATO country code, trigram)", format = "html", digits = 2) %>%
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T)
+
+# Country Classifier Count
+##########################
+country_overall <- qualifying_studies %>% 
+  filter(!is.na(country)) %>%
+  group_by(country, disease_class) %>% 
+  summarise(n = n(), .groups = "drop") %>% 
+  arrange(country, desc(n))
+
+# Classifier Kable Table
+########################
+country_overall %>% 
+  kbl(col.names = c("Country", "CRC Classifier", "Count"),
+      caption = "Country CRC Progression Summary (NATO country code, trigram)", 
+      format = "html") %>%
+  kable_styling(full_width = F) %>% 
+  column_spec(1, bold = T) %>% 
+  collapse_rows(columns = 1, valign = "top")
+
+```
+
+## Appendix 2 - Supplemental Visualizations
+
+### 2-A: Age QQ-Plot (Supports Histogram)
+
+```{r}
+#| label: Age Normality Check - QQ Plot
+
+# QQPlot
+########
+qualifying_studies %>% 
+  # Set Up
+  # ------
+filter(!is.na(age)) %>%
+  # Plotting
+  # --------
+ggplot(aes(sample = age)) + 
+  geom_qq(size = 1, alpha = 0.8) + 
+  geom_qq_line() +
+  # Labeling
+  #---------
+labs(title = "QQ Plot of Age") +
+  theme(plot.title = element_text(hjust = 0, size = 10), 
+        axis.title = element_text(size = 10))
+```
+
+### 2-B: Age Histogram by Gender
+
+```{r}
+#| label: Age Normality Check - Gendered
+
+# Gendered Histogram
+####################
+qualifying_studies %>%
+  # Set Up
+  # ------
+  filter(!is.na(age), !is.na(gender)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = age)) + 
+  geom_histogram(bins = 30, fill = "#539deb", color = "black") +
+  facet_wrap(~gender) +
+  # Labeling
+  #---------
+  labs(title = "Distribution of Age by Gender", x = "Age", y = "Count",) +
+  theme(plot.title = element_text(hjust = 0), 
+        axis.title = element_text(size = 10))
+```
+
+### 2-C: Age Distribution and Proportion By Decade
+
+```{r}
+#| label: Age Distribution and Proportion By Decade
+#| fig-width: 14
+#| fig-height: 9
+#| fig-dpi: 500
+# Barplot of age categories: Colored
+####################################
+
+decade1 <- qualifying_studies %>% 
+  # Set Up 
+  # ------ 
+filter (!is.na(age_decade)) %>% 
+  # Plotting 
+  # -------- 
+ggplot(aes(x=age_decade, fill = disease_class)) + 
+  geom_bar() + 
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nClassifiers") + 
+  # Labeling 
+  #---------
+  labs(
+    title = "Age Distribution By Decade", 
+    x = "Age by Decade", y = "Count")
+
+# Proportion: Age Decade
+###########################
+decade2 <- qualifying_studies %>%
+  # Set Up
+  # ------
+filter (!is.na(age_decade)) %>%
+  # Plotting
+  # --------
+ggplot(aes(x=age_decade, fill = disease_class)) +
+  geom_bar(position="fill") +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nClassifiers") +
+  # Labeling
+  #---------
+labs(title = "CRC Progression Proportion by Age Decade",
+     x = "Age By Decade", y = "Proportion")
+
+# Patchwork
+(decade1 | decade2) + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+
+```
+
+### 2-D: Diet Bar Plots
+
+```{r}
+#| label: Diet counts and Proportion
+#| fig-width: 14
+#| fig-height: 9
+#| fig-dpi: 500
+# Diet ~~~~~~~~~~~~~~~~~~~~~
+############################
+
+# Diet Counts
+#############
+diet1 <- qualifying_studies %>%
+  # Set Up
+  # ------
+  filter(!is.na(diet)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = reorder(diet, diet, 
+                         FUN = function(x) -length(x)))) + 
+  geom_bar(aes(fill = disease_class)) +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression Classifiers") +
+  # Labeling
+  #---------
+  geom_text(stat = "count", aes(label = after_stat(count)), 
+            vjust = -0.17, color = "black") +
+  ggtitle("Diet of Individuals") +
+  labs(title = "Diet of Individuals",
+       x = "Diet", 
+       y = "Counts")
+
+# Diet Proportion
+#################
+diet2 <- qualifying_studies %>%
+  # Set Up
+  # ------
+  filter(!is.na(diet)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = reorder(diet, diet, 
+                         FUN = function(x) -length(x)))) + 
+  geom_bar(aes(fill = disease_class), position = "fill") +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression Classifiers") +
+  # Labeling
+  #---------
+  labs(
+    title = "Diet of Individuals",
+    x = "Diet", 
+    y = "Proportion")
+
+# Patchwork
+###########
+(diet1 | diet2) + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+## Appendix 3 - Statistical Analyses
+
+### 3-A: Gender Binomial Test
+
+```{r}
+#| label: Gender Binomial Test
+
+sex_counts <- table(qualifying_studies$gender)
+binom.test(sex_counts["male"],
+           sum(sex_counts),
+           p = 0.5) # assumes 50/50 split in population
+```
+
+### 3-B: CRC Progression Classifier and Age ANOVA
+
+```{r}
+#| label: Age vs CRC Progression ANOVA
+
+age_CRC_ANOVA <- qualifying_studies %>%
+  filter(!is.na(age)) 
+
+age_CRC_ANOVA2 <- aov(age ~ disease_class, data = age_CRC_ANOVA)
+  
+summary(age_CRC_ANOVA2)
+
+TukeyHSD(age_CRC_ANOVA2, conf.level=.95)
+```
+
+### 3-C: CRC Progression Classifier and BMI ANOVA
+
+```{r}
+#| label: Age vs CRC Progression ANOVA
+
+bmi_CRC_ANOVA <- qualifying_studies %>%
+  filter(!is.na(BMI)) 
+
+bmi_CRC_ANOVA2 <- aov(BMI ~ disease_class, data = bmi_CRC_ANOVA)
+  
+summary(bmi_CRC_ANOVA2)
+
+TukeyHSD(bmi_CRC_ANOVA2, conf.level=.95)
+```
+
+### 3-D: Linear Regression Model by CRC Progression Classifier
+
+```{r}
+#| label: LM to match faceted scatterplot
+
+qualifying_studies$age_centered <- scale(
+  qualifying_studies$age,
+  center = TRUE,
+  scale = FALSE
+)
+
+qualifying_studies$disease_class <- relevel(
+  qualifying_studies$disease_class,
+  ref = "HC" # Changed to refer to healthy control rather than "Other"
+)
+
+age_bmi_scatterplot_lm <- lm(BMI ~ age_centered * disease_class, 
+               data = qualifying_studies)
+
+summary(age_bmi_scatterplot_lm)
+
+```
+
+## Appendix 4 - Relevant R Scripts
+
+### 4-A: Dry_Runs.R
+
+A script used to determine what information was available on our qualifying studies and print to individual text files. Text files can be found on the GitHub for this project in the described file path in the script
+
+```         
+##########
+# Dry Runs
+##########
+# Run Qualifying Studies List
+source("./EDA/Qualifying_Studies_List.R")
+
+# Studies available
+###################
+studies <- qualifying_studies %>%
+  distinct(study_name) %>%
+  pull(study_name)
+print(studies)
+
+# Information Available per Study
+#################################
+for (study in studies) {
+  outfile <- paste0("./EDA/Kaitlyn_EDA/Info_Availability/", study, "_info_availability.txt")
+  writeLines(curatedMetagenomicData(study, dryrun = TRUE), outfile)
+}
+
+# Dry Run
+#########
+
+Test <- curatedMetagenomicData("ThomasAM_2018b.+", 
+                               dryrun = TRUE) # Doesn't download the data
+class(Test)
+length(Test)
+head(Test)
+```

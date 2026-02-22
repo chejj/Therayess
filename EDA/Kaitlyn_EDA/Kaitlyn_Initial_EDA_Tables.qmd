@@ -15,6 +15,7 @@ suppressPackageStartupMessages({
   library(knitr)
   library(kableExtra)
   library(mosaic)
+  library(tidyr)
 })
 
 progression_order <- c(
@@ -105,15 +106,18 @@ age_overall <- qualifying_studies %>%
     median = median(age, na.rm = TRUE),
     Q1 = quantile(age, 0.25, na.rm = TRUE),
     Q3 = quantile(age, 0.75, na.rm = TRUE)
-  ) 
+  )  %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "Statistic",
+    values_to = "Value"
+  )
 
 # Table Setup
 #############
 age_overall %>% 
-  kbl(col.names = c("n", "Mean", 
-                    "Standard Deviation", "Median", 
-                    "Q1", "Q3"),
-      caption = "Overall Age Summary", format = "html") %>%
+  kbl(col.names = c("Statistic", "Value"),
+      caption = "Overall Age Summary", digits = 2,  format = "html") %>%
   kable_styling(full_width = F) %>% 
   column_spec(1, bold = T)
 ```
@@ -123,6 +127,9 @@ age_overall %>%
 ```{r}
 #| label: Age by Gender
 # ---
+gender.table <- table(qualifying_studies$gender)
+prop.table(gender.table)
+
 # Stats Setup
 #############
 age_x_gender <- qualifying_studies %>% 
@@ -192,20 +199,20 @@ Note: We actually have no information on the ethnicity of our study subjects in 
 # Country Stats Setup
 #####################
 country_overall <- qualifying_studies %>% 
-  group_by(country) %>% 
-  summarize(
-    n = sum(!is.na(country))
-  ) %>% 
-  arrange(desc(n))
+  filter(!is.na(country)) %>%
+  group_by(country, disease_class) %>% 
+  summarise(n = n(), .groups = "drop") %>% 
+  arrange(country, desc(n))
 
 # Country Table Setup
 #####################
 country_overall %>% 
-  kbl(col.names = c("Country", "n"),
+  kbl(col.names = c("Country", "CRC Classifier", "n"),
       caption = "Country Overall Summary (NATO country code, trigram)", 
       format = "html") %>%
   kable_styling(full_width = F) %>% 
-  column_spec(1, bold = T)
+  column_spec(1, bold = T) %>% 
+  collapse_rows(columns = 1, valign = "top")
 
 
 # Location Stats Setup
