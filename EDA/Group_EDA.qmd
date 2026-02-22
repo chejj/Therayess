@@ -16,19 +16,19 @@ author:
 
 # Delete Before Submitting
 
-+-----------+---------------------------------------------------------------+
-| Student   | Assignment                                                    |
-+===========+===============================================================+
-| Cory      | Country & Category                                            |
-+-----------+---------------------------------------------------------------+
-| Kaitlyn   | Age & Sex                                                     |
-|           |                                                               |
-|           | Data Availability Table (Show's what cMD has from each study) |
-+-----------+---------------------------------------------------------------+
-| Faith     | Limitations (Missing Data, Pop size, etc.)                    |
-+-----------+---------------------------------------------------------------+
-| Jacob     | Summary Stats, Glossary & Introduction                        |
-+-----------+---------------------------------------------------------------+
++-------------+---------------------------------------------------------------+
+| Student     | Assignment                                                    |
++=============+===============================================================+
+| Cory        | Country & Category                                            |
++-------------+---------------------------------------------------------------+
+| Kaitlyn     | Age & Sex                                                     |
+|             |                                                               |
+|             | Data Availability Table (Show's what cMD has from each study) |
++-------------+---------------------------------------------------------------+
+| Faith       | Limitations (Missing Data, Pop size, etc.)                    |
++-------------+---------------------------------------------------------------+
+| Jacob       | Summary Stats, Glossary & Introduction                        |
++-------------+---------------------------------------------------------------+
 
 ### Assignment Guidelines from Canvas
 
@@ -109,6 +109,11 @@ suppressPackageStartupMessages({
   library(knitr)
   library(patchwork)
   library(tidyr)
+  library(tidyverse)
+  library(vegan)
+  library(mia)
+  library(scater)
+  library(lefser)
 })
 
 progression_order <- c(
@@ -148,15 +153,23 @@ Yada Yada Yada
 
 ##### Diagnostic Categories
 
-| Abbreviation | Description |
-|----|----|
-| HC | Healthy control |
-| PA | Polyp / adenoma |
-| PA+ | Polyp / adenoma with comorbidities |
-| CRC | Colorectal cancer |
-| CRC-H | History of colorectal cancer with resection |
-| CRC+ | Colorectal cancer with comorbidities |
-| Other | Any diagnosed disease without current or history of CRC-related growths |
++----------------------------------+-------------------------------------------------------------------------+
+| Abbreviation                     | Description                                                             |
++==================================+=========================================================================+
+| HC                               | Healthy control                                                         |
++----------------------------------+-------------------------------------------------------------------------+
+| PA                               | Polyp / adenoma                                                         |
++----------------------------------+-------------------------------------------------------------------------+
+| PA+                              | Polyp / adenoma with comorbidities                                      |
++----------------------------------+-------------------------------------------------------------------------+
+| CRC                              | Colorectal cancer                                                       |
++----------------------------------+-------------------------------------------------------------------------+
+| CRC-H                            | History of colorectal cancer with resection                             |
++----------------------------------+-------------------------------------------------------------------------+
+| CRC+                             | Colorectal cancer with comorbidities                                    |
++----------------------------------+-------------------------------------------------------------------------+
+| Other                            | Any diagnosed disease without current or history of CRC-related growths |
++----------------------------------+-------------------------------------------------------------------------+
 
 ### Exploratory Data Analysis
 
@@ -478,7 +491,7 @@ country1 + country2 + country3 +
 
 #### Taxonomic & Pathway Analysis (Cory)
 
-The combined filtered datasets from curatedMetaGenomicData contain over 1000 taxa. To identify any trends in the data, we looked at beta-diversity, which is a test for dissimilarity between the study conditions. Although the p-value was highly significant (P = 0.001), the R-squared value (R\^2 = 0.0078) indicates much of the disimilarity is not explained by the study conditions.
+The combined filtered data sets from curatedMetaGenomicData contain over 1000 taxa. To identify any trends in the data, we looked at beta-diversity, which is a test for dissimilarity between the study conditions. Although the p-value was highly significant (P = 0.001), the R-squared value (R\^2 = 0.0078) indicates much of the dissimilarity is not explained by the study conditions.
 
 ```{r}
 #| echo: false
@@ -487,10 +500,6 @@ The combined filtered datasets from curatedMetaGenomicData contain over 1000 tax
 #| fig-width: 14
 #| fig-height: 6
 #| fig-align: center
-
-library(vegan)
-library(mia)
-library(scater)
 
 data <- returnSamples(
   qualifying_studies,
@@ -539,9 +548,6 @@ To understand how the taxa are distributed across the different study conditions
 #| fig-width: 14
 #| fig-height: 6
 #| fig-align: center
-
-library(tidyverse)
-library(patchwork)
 
 data <- returnSamples(
   qualifying_studies,
@@ -673,8 +679,6 @@ The Relative abundance stacked barplots also indicate there was very little diff
 #| fig-height: 6
 #| fig-align: center
 
-library(lefser)
-
 #Filter data for Japan
 data_JPN <- data[, data$country == "JPN"]
 
@@ -718,8 +722,7 @@ p2b <- lefser(
 ) %>%
   lefserPlot() +
   labs(title = "United States = CRC vs Control")
-
-library(patchwork)
+)
 
 # Save lefser results before plotting
 res_JPN <- lefser(
@@ -799,13 +802,6 @@ ggplot(meta_completeness,
     plot.title = element_text(face = "bold"),
     plot.subtitle = element_text(size = 10)
   )
-
-
-
-
-
-
-
 ```
 
 While this study focuses on CRC metagenomic analysis/”fingerprinting”, the available data has either empty or missing columns for things like tumor stage, location, and metastasis. Original plans had the separation of CRC patients with and without metastasis which is currently not feasible until more complete data is available. This will result in a computational framework that can only compare broad disease categories rather than detailed cancer stages. 
@@ -843,8 +839,6 @@ ggplot(
     y = "Study name",
     fill = "DNA extraction kit"
   )
-
-
 ```
 
 Proposal of this analytical framework is intentionally framed as a proof-of-concept tool rather than a ready to use clinically diagnostic model to show the idea works in principle. Biggest limitations currently include missing or inconsistent metadata, not from the modeling itself. This is to say that when future datasets with more consistent data become available the framework can handle expansions.
