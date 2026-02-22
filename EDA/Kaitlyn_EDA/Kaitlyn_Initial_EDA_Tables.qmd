@@ -199,20 +199,20 @@ Note: We actually have no information on the ethnicity of our study subjects in 
 # Country Stats Setup
 #####################
 country_overall <- qualifying_studies %>% 
-  group_by(country) %>% 
-  summarize(
-    n = sum(!is.na(country))
-  ) %>% 
-  arrange(desc(n))
+  filter(!is.na(country)) %>%
+  group_by(country, disease_class) %>% 
+  summarise(n = n(), .groups = "drop") %>% 
+  arrange(country, desc(n))
 
 # Country Table Setup
 #####################
 country_overall %>% 
-  kbl(col.names = c("Country", "n"),
+  kbl(col.names = c("Country", "CRC Classifier", "n"),
       caption = "Country Overall Summary (NATO country code, trigram)", 
       format = "html") %>%
   kable_styling(full_width = F) %>% 
-  column_spec(1, bold = T)
+  column_spec(1, bold = T) %>% 
+  collapse_rows(columns = 1, valign = "top")
 
 
 # Location Stats Setup
