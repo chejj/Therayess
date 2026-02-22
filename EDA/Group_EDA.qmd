@@ -16,19 +16,19 @@ author:
 
 # Delete Before Submitting
 
-+--------------+---------------------------------------------------------------+
-| Student      | Assignment                                                    |
-+==============+===============================================================+
-| Cory         | Country & Category                                            |
-+--------------+---------------------------------------------------------------+
-| Kaitlyn      | Age & Sex                                                     |
-|              |                                                               |
-|              | Data Availability Table (Show's what cMD has from each study) |
-+--------------+---------------------------------------------------------------+
-| Faith        | Limitations (Missing Data, Pop size, etc.)                    |
-+--------------+---------------------------------------------------------------+
-| Jacob        | Summary Stats, Glossary & Introduction                        |
-+--------------+---------------------------------------------------------------+
++---------+---------------------------------------------------------------+
+| Student | Assignment                                                    |
++=========+===============================================================+
+| Cory    | Country & Category                                            |
++---------+---------------------------------------------------------------+
+| Kaitlyn | Age & Sex                                                     |
+|         |                                                               |
+|         | Data Availability Table (Show's what cMD has from each study) |
++---------+---------------------------------------------------------------+
+| Faith   | Limitations (Missing Data, Pop size, etc.)                    |
++---------+---------------------------------------------------------------+
+| Jacob   | Summary Stats, Glossary & Introduction                        |
++---------+---------------------------------------------------------------+
 
 ### Assignment Guidelines from Canvas
 
@@ -148,23 +148,15 @@ Yada Yada Yada
 
 ##### Diagnostic Categories
 
-+--------------+-------------------------------------------------------------------------+
-| Abbreviation | Description                                                             |
-+==============+=========================================================================+
-| HC           | Healthy control                                                         |
-+--------------+-------------------------------------------------------------------------+
-| PA           | Polyp / adenoma                                                         |
-+--------------+-------------------------------------------------------------------------+
-| PA+          | Polyp / adenoma with comorbidities                                      |
-+--------------+-------------------------------------------------------------------------+
-| CRC          | Colorectal cancer                                                       |
-+--------------+-------------------------------------------------------------------------+
-| CRC-H        | History of colorectal cancer with resection                             |
-+--------------+-------------------------------------------------------------------------+
-| CRC+         | Colorectal cancer with comorbidities                                    |
-+--------------+-------------------------------------------------------------------------+
-| Other        | Any diagnosed disease without current or history of CRC-related growths |
-+--------------+-------------------------------------------------------------------------+
+| Abbreviation | Description |
+|----|----|
+| HC | Healthy control |
+| PA | Polyp / adenoma |
+| PA+ | Polyp / adenoma with comorbidities |
+| CRC | Colorectal cancer |
+| CRC-H | History of colorectal cancer with resection |
+| CRC+ | Colorectal cancer with comorbidities |
+| Other | Any diagnosed disease without current or history of CRC-related growths |
 
 ### Exploratory Data Analysis
 
@@ -486,7 +478,7 @@ country1 + country2 + country3 + guide_area() +
 
 #### Taxa & Pathway Analysis (Cory)
 
-The combined filtered datasets from curatedMetaGenomicData contain over 1000 taxa. To identify any trends in the data, we looked at beta-diversity, which is a test for dissimilarity between the study conditions. Although the p-value was highly significant (P = 0.001), the R-squared value (R^2 = 0.0078) indicates much of the disimilarity is not explained by the study conditions.
+The combined filtered datasets from curatedMetaGenomicData contain over 1000 taxa. To identify any trends in the data, we looked at beta-diversity, which is a test for dissimilarity between the study conditions. Although the p-value was highly significant (P = 0.001), the R-squared value (R\^2 = 0.0078) indicates much of the disimilarity is not explained by the study conditions.
 
 ```{r}
 #| echo: false
@@ -758,9 +750,104 @@ intersect(crc_JPN, crc_USA)
 bugsInCommon <- intersect(crc_JPN, crc_USA)
 
 ```
+
 Three genera (Blautia, Collinsella, and Dorea) were found to have greater abundance in CRC samples compared to controls. This warrants further investigation....
 
 #### Data Limitations
+
+While this work assesses the feasibility of leveraging human gut microbiome “fingerprints” for disease-state characterization, limitations do still exist from data availability, metadata completeness, and necessary inclusion criteria. All of which are not unique to this study but rather showcase the current challenges amongst large scale microbiome meta-analyses. 
+
+A rather major limitation is the incomplete availability of clinically and biologically relevant metadata across the various studies in our analysis. The metadata completeness analysis shown below visualises this. There is only a subset of variables that are consistently available throughout the data such as the sequencing platform use, participant country, gender, age and age by decade, BMI, and disease class. This is unfortunate because it is known that the microbiome is drastically influenced by variables that are not consistent such as antibiotic use, smoking status, alcohol consumption, and disease stages [(Tegegne & Savidge, 2025)](https://www.zotero.org/google-docs/?OPR4V4). The original use case was intended to be applied to antibiotic usage which will unfortunately need to be pushed until more complete data sets are available. 
+
+```{r, echo=FALSE}
+  
+meta_completeness <- qualifying_studies %>%
+  summarise(across(all_of(meta_vars), ~ mean(!is.na(.)))) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "variable",
+    values_to = "completeness"
+  ) %>%
+  mutate(completeness = completeness * 100)
+
+print(meta_completeness)
+
+#create a heatmap for metadata completeness 
+meta_completeness <- meta_completeness %>%
+  arrange(completeness) %>%
+  mutate(variable = factor(variable, levels = variable))
+
+ggplot(meta_completeness,
+       aes(x = "", y = variable, fill = completeness)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(
+    low = "white",
+    high = "steelblue",
+    limits = c(0, 100),
+    name = "% samples\nwith data"
+  ) +
+  labs(
+    title = "Metadata Completeness in CRC Related Metagenomic Samples",
+    subtitle = "Percent of samples with non-missing values per variable",
+    x = NULL,
+    y = NULL
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    plot.title = element_text(face = "bold"),
+    plot.subtitle = element_text(size = 10)
+  )
+
+
+
+
+
+
+
+```
+
+While this study focuses on CRC metagenomic analysis/”fingerprinting”, the available data has either empty or missing columns for things like tumor stage, location, and metastasis. Original plans had the separation of CRC patients with and without metastasis which is currently not feasible until more complete data is available. This will result in a computational framework that can only compare broad disease categories rather than detailed cancer stages. 
+
+Other limitations came about after the filtering of the dataset to keep data consistent and comparable. Filters included only adult patients, stool samples only, disease labels, and CRC relevant studies. While the data quality is better using these filters, it does shrink the dataset. The filtering created a working database with mostly CRC samples where polyp-only and adenoma cases are few and far between. Due to this, disease progression from polyp to cancer modeling will not be reliable. Again this leads to a focus on broad comparisons such as healthy participants vs early lesions vs CRC. 
+
+As this dataset is a compilation, there are other considerations to factor in, specifically the difference in laboratory techniques, sequencing machines, extraction kits, and protocols used throughout all of the studies. These variables are documented but they cannot be fully corrected for so they must be mentioned as they create biological noise in an exploratory modeling approach such as this
+
+```{r, echo=FALSE}
+#create ggplot of studies selected and sequencing platform and extraction kit used
+#summary table with counts per study X
+study_tech_summary <- qualifying_studies %>%
+  filter(
+    !is.na(sequencing_platform),
+    !is.na(DNA_extraction_kit)
+  ) %>%
+  count(study_name, sequencing_platform, DNA_extraction_kit)
+    #sanity check lol
+head(study_tech_summary)
+#create ggplot
+ggplot(
+  study_tech_summary,
+  aes(
+    y = study_name,
+    x = n,
+    fill = DNA_extraction_kit
+  )
+) +
+  geom_col() +
+  facet_wrap(~ sequencing_platform, scales = "free_y") +
+  theme_bw() +
+  labs(
+    title = "Sequencing Platforms and DNA Extraction Kits Across CRC-Relevant Studies",
+    x = "Number of samples",
+    y = "Study name",
+    fill = "DNA extraction kit"
+  )
+
+
+```
+
+Proposal of this analytical framework is intentionally framed as a proof-of-concept tool rather than a ready to use clinically diagnostic model to show the idea works in principle. Biggest limitations currently include missing or inconsistent metadata, not from the modeling itself. This is to say that when future datasets with more consistent data become available the framework can handle expansions.
 
 ### Conclusion
 
