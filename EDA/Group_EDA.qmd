@@ -134,23 +134,15 @@ qualifying_studies <- qualifying_studies %>%
 
 ##### Diagnostic Categories
 
-+----------------------------------+-------------------------------------------------------------------------+
-| Abbreviation                     | Description                                                             |
-+==================================+=========================================================================+
-| HC                               | Healthy control                                                         |
-+----------------------------------+-------------------------------------------------------------------------+
-| PA                               | Polyp / adenoma                                                         |
-+----------------------------------+-------------------------------------------------------------------------+
-| PA+                              | Polyp / adenoma with comorbidities                                      |
-+----------------------------------+-------------------------------------------------------------------------+
-| CRC                              | Colorectal cancer                                                       |
-+----------------------------------+-------------------------------------------------------------------------+
-| CRC-H                            | History of colorectal cancer with resection                             |
-+----------------------------------+-------------------------------------------------------------------------+
-| CRC+                             | Colorectal cancer with comorbidities                                    |
-+----------------------------------+-------------------------------------------------------------------------+
-| Other                            | Any diagnosed disease without current or history of CRC-related growths |
-+----------------------------------+-------------------------------------------------------------------------+
+| Abbreviation | Description |
+|------------------------|------------------------------------------------|
+| HC | Healthy control |
+| PA | Polyp / adenoma |
+| PA+ | Polyp / adenoma with comorbidities |
+| CRC | Colorectal cancer |
+| CRC+ | Colorectal cancer with comorbidities |
+| CRC-H | History of colorectal cancer with resection |
+| Other | Any diagnosed disease without current or history of CRC-related growths |
 
 ### Exploratory Data Analysis
 
@@ -158,9 +150,7 @@ qualifying_studies <- qualifying_studies %>%
 
 #### Metadata Analysis
 
-Of great benefit to having the cMD3 database is the standardization of the metadata, allowing for the analysis of potential confounding variables for biases and major discrepancies in the data that may influence the results and interpretations downstream. With prior evidence supporting age, gender, diet, geographical location, and BMI as factors that influence the relative risk of CRC (Dakal et al., 2025; O’Keefe, 2016; Singh et al., 2017), they are important variables to consider in our EDA and to sources of distribution bias or significance.
-
-All samples included contain information regarding the age and gender, which is important considering they are some of the factors in CRC screening and preventative care (Cancer Over Time, n.d.; Duan et al., 2022; Siegel et al., 2025). Summary statistics were conducted (Appendix 1-A), showing a mean age of 59, standard deviation of 14.75, and median of 63, suggesting a skew in this continuous variable. When faceted by gender (Appendix 1-B), aside from the proportion of males and females being statistically different from each other (41.1% female, p = 5.821e-14, Appendix 1-B and 3-A), the median, mean, and quartiles are not remarkably different. A histogram (Figure 1-A) and box plot by CRC progression classifier (Figure 1-B) were generated to corroborate this information, checking for extreme skewedness (supporting Q-Q plot available in Appendix 2-A). These show that while there is a slight left tailed skew in age overall with a bimodal pattern, seemingly caused by the healthy controls visible in the box plot, it is not to an extreme that would harm our final model detrimentally. Random Forest models are robust to unbalanced data (Bradter et al., 2022). Skew and variance of age was also checked between the sexes via a faceted histogram, which can be found in the supplementary visualizations (Appendix 2-B). Since the sample size is large, the central limit theorem allows for an ANOVA to be performed despite the slight skew, which was done to a 95% confidence level. This was to assess if there is a statistical difference in the mean age of the groups as a compliment to the box plot (Appendix 3-B). The p-value was \<2e-16, and a follow-up Tukey’s Honest Significant Difference (HSD) test was conducted to determine which pairings were significantly different from each other. The following pairings with "HC" were statistically different: "Other", "PA", "PA+", "CRC", and "CRC+" (all p-values \<0.000, Appendix 3-B). All other differences in age between the CRC progression classifiers showed no statistical significance at a 95% confidence interval.
+The age summary statistics in Appendix 1-A show a mean of 59, standard deviation of 14.75, and median of 63, suggesting a skew. When faceted by gender, aside from a binomial test showing statistical difference in proportion (41.1% female, p = 5.821e-14, Appendix 1-B and 3-A), the median, mean, and quartiles are not remarkably different. A histogram and box plot (Figure 1-A and 1-B) were generated to corroborate this information (Q-Q plot available, Appendix 2-A). While age has a slight left-tailed skew with a bimodal shape, seemingly caused by the healthy controls visible in the box plot, it is not to an extreme that would harm our final model detrimentally. Skew and variance of age was checked between the sexes via a faceted histogram, which can be found in Appendix 2-B. An ANOVA found a statistical difference in the mean ages of the groups complementary to the box plot (95% CI, p = \<2e-16, Appendix 3-B), requiring a follow-up Tukey’s Honest Significant Difference (HSD) test to determine which pairings were significantly different from each other. The following pairings with "HC" were found to be statistically different: "Other", "PA", "PA+", "CRC", and "CRC+" (all p-values \<0.000, Appendix 3-B). All other differences in age between the CRC progression classifiers showed no statistical significance at a 95% confidence interval.
 
 After checking normality of the data, the age was divided into decades, with those 18 and 19 years old included in the 20-29 group to avoid a decade being visualized with only two years represented, and all those 80 years or older being grouped together as there was only one individual above 89 years. The two least represented decades in this study will be the 80+ and 30-39 decades (2.7% and 4.0%, respectively) and the three most represented being 60-69, 70-79, and 50-59 (34.4%, 21.8%, 19.9%, respectively; Appendix 1-C). Figure 1-C represents this data in proportions for easier comparisons across the decades, faceted by gender, as it is well established that males have a higher relative risk of CRC than females (Colorectal Cancer Statistics, n.d.; Duan et al., 2022). This pattern is reflected across most age groups in our data, particularly from 30-79. Furthermore, visually there are less samples with recorded comorbidities, as well as less "PA" compared to "CRC" and "HC", overall.
 
@@ -247,7 +237,7 @@ age_gender_caption <- str_wrap(
   "(A) Histogram demonstrating a bimodal age distribution with a secondary peak near 25 years and a primary peak near 60 years. 
    (B) Box plot of age across CRC progression classifiers, with jittered transluscent points to demonstrate spread of the sample. The red dot represents the mean, the line represents the median.
    (C) Bar plot displaying the gender faceted proportion of CRC progression classifiers across each decade. Notable differences include and visual increase in HC from 18-69 for females, and increased PA and CRC/CRC+ across most decades in males.", 
-  width = 200
+  width = 150
 )
 
 normality1 + normality2 + decade1 + guide_area() + 
@@ -265,123 +255,9 @@ normality1 + normality2 + decade1 + guide_area() +
   )
 ```
 
-Geographical location and consequently diet are also well established to be linked to CRC development (Dakal et al., 2025; Li et al., 2025; Singh et al., 2017). The three most affected countries by CRC—Japan, the United States, and China (Colorectal Cancer Statistics, n.d.; Worldwide Cancer Data, n.d.)—are well represented in this multi-cohort study at 38.9%, 17.0%, and 7.2% respectively (Figure 2-A, Appendix 1-D). This is important for our study to ensure that our results and model will be applicable to the most vulnerable target populations. Within these three target countries, there is representation from 6 of our classifiers, visible in Figures 2-B and 2-C: "Other", "HC", "PA", "CRC", "CRC+", and "CRC-H". The only unrepresented classifier is "PA+". Country is often closely tied to diet, however it is often not collected as a data point in studies, which is reflected in this data set, with only 276 data points containing information regarding diet, approximately 98.4% classified as omnivores and the remainder (10 samples) representing vegetarians, which may not be enough data points to investigate variability in diet as a factor in CRC progression, as it may over inflate proportions of different stages of the disease, like in various visualizations attempted (Appendix 2-C).
+The three most affected countries by CRC are well represented in this multi-cohort study (Appendix 1-D and 2-E), and within these three target countries, there is representation from 6 of our classifiers: "Other", "HC", "PA", "CRC", "CRC+", and "CRC-H". The only unrepresented classifier is "PA+".
 
-```{r, echo=FALSE}
-#| label: Countries Associations
-#| fig-width: 14
-#| fig-height: 6
-#| fig-dpi: 500
-# ---
-
-# Countries ~~~~~~~~~~~~~~~~
-############################
-
-# Country Count
-###############
-country1 <- qualifying_studies  %>% 
-  # Set Up
-  # ------
-  filter(!is.na(country)) %>%
-  # Plotting
-  # --------
-  ggplot(aes(x = reorder(country, country, 
-                         FUN = function(x) -length(x)))) + 
-  geom_bar() +
-  # Labeling
-  #---------
-  geom_text(stat = "count", aes(label = after_stat(count)), 
-            vjust = -0.21, size = 3, color = "black") +
-  labs(
-    title = "Country Sample Count Distribution", 
-    x = "Country (NATO country code, trigram)", 
-    y = "Count") +
-  theme( 
-        legend.position = "none", 
-        plot.title = element_text(size = 12))
-
-# Country Fill
-##############
-country2 <- qualifying_studies  %>% 
-  # Set Up
-  # ------
-  filter(!is.na(country)) %>%
-  # Plotting
-  # --------
-  ggplot(aes(x = reorder(country, country, 
-                         FUN = function(x) -length(x)), 
-             fill=disease_class)) + 
-  geom_bar() +
-  scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression Classifiers") +
-  # Labeling
-  #---------
-  labs(title = "Country Sample Count Distribution",
-       subtitle = "with CRC Progression Classifiers",
-       x = "Country (NATO country code, trigram)", 
-       y = "Count") +
-  theme( 
-        legend.position = "none", 
-        plot.title = element_text(size = 12))
-
-# Countries Proportions
-#######################
-country3 <- qualifying_studies %>% 
-  # Set Up
-  # ------
-  filter(!is.na(country)) %>%
-  # Plotting
-  # --------
-  ggplot(aes(x = reorder(country, country, 
-                         FUN = function(x) -length(x)), fill = disease_class)) + 
-  geom_bar(position = "fill") +
-  scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression Classifiers") +
-  # Labeling
-  #---------
-  labs(
-    title = "Proportion of CRC Progression Per Country", 
-    x = "Country (NATO country code, trigram)", 
-    y = "Proportion") +
-  theme( 
-        plot.title = element_text(size = 12))
-
-
-# Display
-#########
-layout3 <- c( # t, l , b = t, r = l
-  area(1, 1, 2, 2),
-  area(1, 3, 2, 4),
-  area(1, 5, 2, 6)
-)
-
-#plot(layout3)
-
-geography_caption <- str_wrap(
-  "(A) Bar plot of country sample count, sorted in descending order. 
-   (B) Stacked bar plot of country sample count, sorted in descending order, filled with CRC progression classifiers.
-   (C) Stacked bar plot of the CRC progression classifier proportion for each country in the multi-cohort study.", 
-  width = 200
-)
-
-country1 + country2 + country3 + 
-  plot_layout(design = layout3, guides = "collect", heights = c(1, 0.18)) +
-  plot_annotation(
-    title = "Figure 2: Country Associations with CRC Progression Classifiers",
-    tag_levels = "A",
-    caption = geography_caption
-  ) &
-  theme(
-        plot.title = element_text(hjust = 0, size = 14),
-        plot.caption = element_text(hjust = 0, size = 11), 
-        legend.key.size = unit(0.5, "cm"),
-        legend.title = element_text(size = 10), 
-        legend.direction = "vertical", 
-        legend.position = "right"
-  )
-```
-
-BMI has been previously associated with microbial shifts (Li et al., 2025) and should be heavily considered when modelling. We examined the distribution of the BMI among the CRC progression classifiers (Figure 3-A) and while there were a few outliers, particularly in the upper BMI bounds of the "PA", "PA+", and "CRC" classifiers, there are visually striking differences among the means of the groupings, particularly those with comorbidities. To confirm, an ANOVA was run (Appendix 3-C) which was found to be statistically significant (95% confidence, p = \<2e-16), warranting a Tukey's HSD for further investigation. Of 21 pairings, 13 were found to be statistically significant to a 95% confidence level, meaning BMI could have an impact. It appears to have the most impact on "CRC-H" (5 pairings), "Other" (4 pairings), and "CRC" (4 pairings). BMI and age are also known to influence each other, thus it was decided to check if there would be any clustering or relationship visible when plotted against one another, shown in Figure 3-B. Associated linear models were conducted for each CRC progression classifier to check for potential relationships, which are also represented on the scatter plots (Appendix 3-D). Results of the age-centered, linear regression modelling shows a very low R-squared value of 0.0707, meaning that BMI and age only explains about 7% of the variance, though there are a few relationships that show statistical significance to a 95% confidence level, such as in "CRC-H" and "Other". With such a low explanation of the variance, it would be interesting to see how this may or may not extend towards the taxonomic and pathway relationships in the gut microbiome.
+Figure 2-A shows the distribution of BMI among the CRC progression classifiers; while there were a few outliers, particularly in the upper BMI bounds of the "PA", "PA+", and "CRC", there are visually striking differences among the means. An ANOVA (Appendix 3-C) showed statistical significance (95% confidence, p = \<2e-16), warranting a Tukey's HSD for further investigation. Of 21 pairings, 13 were found to be statistically significant to a 95% confidence level, meaning BMI could have an impact. It appears to have the most impact on "CRC-H" (5 pairings), "Other" (4 pairings), and "CRC" (4 pairings). BMI and age are also known to influence each other, thus it was decided to check if there would be any clustering or relationship visible when plotted against one another, shown in Figure 2-B. Associated linear models were conducted for each CRC progression classifier to check for potential relationships, which are also represented on the scatter plots (Appendix 3-D). Results of the age-centered, linear regression modelling shows a very low R-squared value of 0.0707, meaning that BMI and age only explains about 7% of the variance, though there are a few relationships that show statistical significance to a 95% confidence level, such as in "CRC-H" and "Other". With such a low explanation of the variance, it would be interesting to see how this may or may not extend towards the taxa and pathway relationships in the gut microbiome.
 
 ```{r, echo=FALSE}
 #| label: BMI Associations
@@ -457,7 +333,7 @@ BMI_caption <- str_wrap(
 bmi1 + bmi2 +
   plot_layout(design = layout2) +
   plot_annotation(
-    title = "Figure 3: BMI Associations with CRC Progression Classifiers",
+    title = "Figure 2: BMI Associations with CRC Progression Classifiers",
     tag_levels = "A",
     caption = BMI_caption
   ) &
