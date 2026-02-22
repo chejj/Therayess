@@ -1,12 +1,20 @@
 ---
 title: "Metagenomic EDA of Fecal Samples - Appendix"
-format: pdf
 
 author: 
   - name: Kaitlyn Schisler
   - name: Cory Spern
   - name: Faith Shipman
   - name: Jacob Anderson
+
+format: 
+  pdf:
+    toc: true
+    toc-depth: 3
+    header-includes:
+      - \setkomafont{title}{\Large\bfseries}
+      - \setkomafont{author}{\normalsize}
+      - \setkomafont{date}{\small}
 ---
 
 ```{r, echo=FALSE}
@@ -56,33 +64,13 @@ qualifying_studies <- qualifying_studies %>%
 
 ## Table of Contents
 
-1.  Summary Tables & Related Code
-
-    1.  A - Age Summary Statistics
-
-    2.  B - Age by Gender Summary Statistics
-
-    3.  C - Age By Decade Summary Statistics
-
-2.  Supplemental Visualizations & Related Code
-
-    1.  A - Age Histogram Faceted by Gender
-
-3.  Statistical Analyses
-
-    1.  A - CRC Progression Classifier and Age ANOVA
-
-4.  Relevant R Scripts
-
-    1.  A - Dry_Runs.R
-
-5.  Relevant Links
+1.  Relevant Links
 
     1.  Project GitHub
 
     2.  cMD3 Dataset
 
-6.  Bibliography [***(here or at the end of our document?)***]{.underline}
+2.  Bibliography [***(here or at the end of our document?)***]{.underline}
 
 ## Appendix 1 - Summary Tables
 
@@ -126,7 +114,7 @@ age_overall %>%
     col.names = c("Statistic", "Value"),
     caption = "Overall Age Summary",
     digits = 2,
-    format = "html"
+    format = "latex"
   ) %>%
   kable_styling(full_width = FALSE) %>%
   column_spec(1, bold = TRUE)
@@ -163,7 +151,7 @@ age_x_gender %>%
   kbl(
     col.names = c("Gender", "N (%)", "Mean", "Standard Deviation",
                   "Median", "Q1", "Q3"),
-      caption = "Age Summary by Gender", format = "html", digits = 2) %>%
+      caption = "Age Summary by Gender", format = "latex", digits = 2) %>%
   kable_styling(full_width = F) %>% 
   column_spec(1, bold = T)
 
@@ -193,7 +181,7 @@ age_decade %>%
   select(age_decade, `N (%)`) %>%
   kbl(
     col.names = c("Age (Decade)", "N (%)"),
-      caption = "Age Summary by Decade", format = "html", digits = 2) %>%
+      caption = "Age Summary by Decade", format = "latex", digits = 2) %>%
   kable_styling(full_width = F) %>% 
   column_spec(1, bold = T)
 ```
@@ -224,7 +212,8 @@ country_overall %>%
   select(country, `N (%)`) %>%
   kbl(
     col.names = c("Country", "N (%)"),
-      caption = "Country Overall Summary (NATO country code, trigram)", format = "html", digits = 2) %>%
+      caption = "Country Overall Summary (NATO country code, trigram)", 
+    format = "latex", digits = 2) %>%
   kable_styling(full_width = F) %>% 
   column_spec(1, bold = T)
 
@@ -241,7 +230,7 @@ country_overall <- qualifying_studies %>%
 country_overall %>% 
   kbl(col.names = c("Country", "CRC Classifier", "Count"),
       caption = "Country CRC Progression Summary (NATO country code, trigram)", 
-      format = "html") %>%
+      format = "latex") %>%
   kable_styling(full_width = F) %>% 
   column_spec(1, bold = T) %>% 
   collapse_rows(columns = 1, valign = "top")
@@ -434,7 +423,7 @@ TukeyHSD(age_CRC_ANOVA2, conf.level=.95)
 ### 3-C: CRC Progression Classifier and BMI ANOVA
 
 ```{r}
-#| label: Age vs CRC Progression ANOVA
+#| label: BMI vs CRC Progression ANOVA
 
 bmi_CRC_ANOVA <- qualifying_studies %>%
   filter(!is.na(BMI)) 
@@ -475,6 +464,105 @@ summary(age_bmi_scatterplot_lm)
 
 A script used to install BiocManager and the cMD3 package for the first time.
 
+```{r}
+#| label: Installing cMD3
+#| eval: false
+#| include: false
+
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("curatedMetagenomicData")
+```
+
 ### 4-B: Dry_Runs.R
 
 A script used to determine what information was available on our qualifying studies and print to individual text files. Text files can be found on the GitHub for this project in the described file path in the script.
+
+```{r}
+#| label: Dry Runs
+#| eval: false
+#| include: false
+
+# Run Qualifying Studies List
+source("./EDA/Qualifying_Studies_List.R")
+
+# Studies available
+###################
+studies <- qualifying_studies %>%
+  distinct(study_name) %>%
+  pull(study_name)
+print(studies)
+
+# Information Available per Study
+#################################
+for (study in studies) {
+  outfile <- paste0("./EDA/Kaitlyn_EDA/Info_Availability/", study, "_info_availability.txt")
+  writeLines(curatedMetagenomicData(study, dryrun = TRUE), outfile)
+}
+
+# Dry Run
+#########
+Test <- curatedMetagenomicData("ThomasAM_2018b.+", 
+                               dryrun = TRUE) # Doesn't download the data, dry runs it
+class(Test)
+length(Test)
+head(Test)
+```
+
+### 4-C: Group EDA Setup R Chunk
+
+The R chunk at the beginning of the file to allow for rendering of all plots and data analysis.
+
+```{r}
+#| label: Setup for EDA Document
+#| eval: false
+#| include: false
+source("Qualifying_Studies_List.R")
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(knitr)
+  library(kableExtra)
+  library(patchwork)
+
+  library(vegan)
+  library(mia)
+  library(scater)
+  library(lefser)
+
+  library(grid)
+  library(gridExtra)
+})
+
+progression_order <- c(
+  "HC",
+  "PA",
+  "PA+",
+  "PA-M",
+  "CRC",
+  "CRC+",
+  "CRC-H",
+  "CRC-M", 
+  "Other"
+)
+
+progression_colors <- c(
+  "HC" = "#539deb",
+  "PA" = "#e4e85b",
+  "PA+" = "#e8a25b",
+  "CRC" = "#cf1919",
+  "CRC+" = "#8f0000",
+  "CRC-M" = "#4d0404",
+  "CRC-H" = "#520f76",
+  "Other" = "#aaa3a3"
+)
+
+qualifying_studies <- qualifying_studies %>% 
+  mutate(
+    disease_class = factor(disease_class, levels = progression_order)
+  )
+```
+
+## Appendix 5 - Relevant Links
+
+## Appendix 6 - Bibliography
