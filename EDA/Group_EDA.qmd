@@ -112,7 +112,6 @@ suppressPackageStartupMessages({
 })
 
 progression_order <- c(
-  "Other", 
   "HC",
   "PA",
   "PA+",
@@ -120,7 +119,8 @@ progression_order <- c(
   "CRC",
   "CRC+",
   "CRC-H",
-  "CRC-M"
+  "CRC-M", 
+  "Other"
 )
 
 progression_colors <- c(
@@ -172,16 +172,16 @@ Yada Yada Yada
 
 #### Metadata Analysis (Kaitlyn)
 
-Of great benefit to having the cMD3 database is the standardization of the metadata, allowing for the analysis of potential confounding variables for biases and major discrepancies in the data that may influence the results and interpretations downstream. With prior evidence supporting age, gender, diet, geographical location, BMI, and drinking and smoking habits are all factors that may influence the relative risk of CRC (SOURCE), they are important variables to consider in our initial EDA, checking for bias in distribution and sources of significance.
+Of great benefit to having the cMD3 database is the standardization of the metadata, allowing for the analysis of potential confounding variables for biases and major discrepancies in the data that may influence the results and interpretations downstream. With prior evidence supporting age, gender, diet, geographical location, and BMI as factors that influence the relative risk of CRC (SOURCE), they are important variables to consider in our EDA and to sources of distribution bias or significance.
 
-##### Age, Gender, and CRC Progression Classifiers
+All samples included contain information regarding the age and gender, which is important considering they are some of the factors in CRC screening and preventative care (SOURCE). Summary statistics were conducted (Appendix 1-A), showing a mean age of 59, standard deviation of 14.75, and median of 63, suggesting a skew in this continuous variable. When faceted by gender (Appendix 1-B), aside from the proportion of males and females being statistically different from each other (41.1% female, p = 5.821e-14, Appendix 1-B and 3-A), the median, mean, and quartiles are not remarkably different. A histogram (Figure 1-A) and box plot by CRC progression classifier (Figure 1-B) were generated to corroborate this information, checking for extreme skewedness (supporting Q-Q plot available in Appendix 2-A). These show that while there is a slight left tailed skew in age overall with a bimodal pattern, seemingly caused by the healthy controls visible in the box plot, it is not to an extreme that would harm our final model detrimentally. Random Forest models are robust to skew (SOURCE). Skew and variance of age was also checked between the sexes via a faceted histogram, which can be found in the supplementary visualizations (Appendix 2-B). Since the sample size is large, the central limit theorem allows for an ANOVA to be performed despite the slight skew, which was done to a 95% confidence level. This was to assess if there is a statistical difference in the mean age of the groups as a compliment to the box plot (Appendix 3-B). The p-value was \<2e-16, and a follow-up Tukey’s Honest Significant Difference (HSD) test was conducted to determine which pairings were significantly different from each other. The following pairings with "HC" were statistically different: "Other", "PA", "PA+", "CRC", and "CRC+" (all p-values \<0.000, Appendix 3-B). All other differences in age between the CRC progression classifiers showed no statistical significance at a 95% confidence interval.
 
-All samples included contain information regarding the age and gender, which is important considering they are some of the factors in CRC screening and preventative care (SOURCE). Summary statistics were conducted (Appendix 1-A), showing a mean age of 59, standard deviation of 14.75, and median of 63, suggesting a skew in this continuous variable. When faceted by gender (Appendix 1-B), aside from the proportion of males and females being statistically different from each other (41.1% female, p = 5.821e-14, Appendix 1-B and 3-A), the median, mean, and quartiles are not remarkably different. A histogram (Figure 1-A) and box plot by CRC progression classifier (Figure 1-B) were generated to corroborate this information, checking for extreme skewedness. These show that while there is a slight left tailed skew in age overall with a bimodal pattern, seemingly caused by the healthy controls visible in the box plot, it is not to an extreme that would harm our final model detrimentally. Random Forest models are robust to skew (SOURCE). Skew and variance of age was also checked between the sexes via a faceted histogram, which can be found in the supplementary visualizations (Appendix 2-A). Since the sample size is large, the central limit theorem allows for an ANOVA to be performed despite the slight skew, which was done to a 95% confidence level. This was to assess if there is a statistical difference in the mean age of the groups as a compliment to the box plot (Appendix 3-B). The p-value was \<2e-16, and a follow-up Tukey’s Honest Significant Difference (HSD) test was conducted to determine which pairings were significantly different from each other. The following pairings with "HC" were statistically different: "Other", "PA", "PA+", "CRC", and "CRC+" (all p-values \<0.000, Appendix 3-B). All other differences in age between the CRC progression classifiers showed no statistical significance at a 95% confidence interval.
+After checking normality of the data, the age was divided into decades, with those 18 and 19 years old included in the 20-29 group to avoid a decade being visualized with only two years represented, and all those 80 years or older being grouped together as there was only one individual above 89 years. The two least represented decades in this study will be the 80+ and 30-39 decades (2.7% and 4.0%, respectively) and the three most represented being 60-69, 70-79, and 50-59 (34.4%, 21.8%, 19.9%, respectively; Appendix 1-C). Figure 1-C represents this data in proportions for easier comparisons across the decades, faceted by gender, as it is well established that males have a higher relative risk of CRC than females (SOURCE). It appears that this pattern is also reflected across most age groups in our data, particularly from 30-79. Visually, there are far less samples with recorded comorbidities, represented by the "plus" ("+"), as well as relatively less "PA" compared to "CRC" and "HC" overall.
 
 ```{r, echo=FALSE}
 #| label: Age Normality & CRC Variation across Age/Gender
 #| fig-width: 14
-#| fig-height: 9
+#| fig-height: 7
 #| fig-dpi: 500
 # ---
 
@@ -214,7 +214,7 @@ normality2 <- qualifying_studies %>%
   # --------   
   ggplot(aes(x=disease_class, y=age)) +    
   geom_boxplot(outlier.shape = NA) +   
-  geom_jitter(alpha = 0.05, width = 0.15) +   
+  geom_jitter(alpha = 0.07, width = 0.15) +   
   stat_summary(fun = mean, geom = "point", shape = 20, size = 5, color = "red") +
   # Labeling   
   #--------- 
@@ -225,51 +225,10 @@ normality2 <- qualifying_studies %>%
 
 # CRC ACROSS AGE/GENDER ~~~~~~~~~~~~~~~~~
 #########################################
-# Barplot of age categories: Colored
-####################################
-
-decade1 <- qualifying_studies %>% 
-  # Set Up 
-  # ------ 
-filter (!is.na(age_decade)) %>% 
-  # Plotting 
-  # -------- 
-ggplot(aes(x=age_decade, fill = disease_class)) + 
-  geom_bar() + 
-  scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nClassifiers") + 
-  # Labeling 
-  #--------- 
-theme(
-      axis.title.x = element_text(hjust = 0.5), 
-      plot.title = element_text(size = 11)) + 
-  labs(
-    title = "Age Distribution By Decade", 
-    x = "Age by Decade", y = "Count")
-
-# Proportion: Age Decade
-###########################
-decade2 <- qualifying_studies %>%
-  # Set Up
-  # ------
-filter (!is.na(age_decade)) %>%
-  # Plotting
-  # --------
-ggplot(aes(x=age_decade, fill = disease_class)) +
-  geom_bar(position="fill") +
-  scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nClassifiers") +
-  # Labeling
-  #---------
-labs(title = "CRC Progression Proportion by Age Decade",
-     x = "Age By Decade", y = "Proportion") +
-  theme(
-    plot.title = element_text(size = 11)
-  )
 
 # Gendered Barplot: Proportions
 ###############################
-decade3 <- qualifying_studies %>%
+decade1 <- qualifying_studies %>%
   # Set Up
   # ------
 filter(!is.na(age_decade), !is.na(gender)) %>%
@@ -284,9 +243,7 @@ ggplot(aes(x = age_decade, fill = disease_class)) +
   #---------
 labs(title = "CRC Progression Proportion by Age Decade, Grouped by Gender", 
      x = "Age by Decade", y = "Proportion") +
-  theme( 
-        legend.position = "none", 
-        plot.title = element_text(size = 12))
+  theme(plot.title = element_text(size = 12))
 
 ###################
 # Display Patchwork
@@ -294,24 +251,20 @@ labs(title = "CRC Progression Proportion by Age Decade, Grouped by Gender",
 layout1 <- c( # t, l , b = t, r = l
   area(1, 1, 2, 2), 
   area(1, 3, 2, 4),
-  area(3, 1, 4, 2), 
-  area(3, 3, 4, 4),
-  area(5, 1, 7, 4), 
-  area(5, 5, 7, 5)
+  area(3, 1, 5, 4), 
+  area(3, 5, 5, 5)
 )
 
 #plot(layout1)
 
 age_gender_caption <- str_wrap(
   "(A) Histogram demonstrating a bimodal age distribution with a secondary peak near 25 years and a primary peak near 60 years. 
-   (B) Box plot of age across CRC progression classifiers, with jittered transluscent points to demonstrate spread of the sample. This effectively displays the main contributor to the skew is coming from the HC group, with the dense cluster of points at approximately 25 years. The red dot represents the mean, the line represents the median.
-   (C) Barplot of Age distribution by decade. Note that the first decade range includes 18-20 to avoid a bar of those only 18 and 19 years old.
-   (D) Barplot displaying overall proportion of the CRC progression classifiers across each decade.
-   (E) Barplot displaying the gender faceted proportion of CRC progression classifiers across each decade. Notable differences include and visual increase in HC from 18-69 for females, and increased PA and CRC/CRC+ across most decades in males.", 
+   (B) Box plot of age across CRC progression classifiers, with jittered transluscent points to demonstrate spread of the sample. The red dot represents the mean, the line represents the median.
+   (C) Bar plot displaying the gender faceted proportion of CRC progression classifiers across each decade. Notable differences include and visual increase in HC from 18-69 for females, and increased PA and CRC/CRC+ across most decades in males.", 
   width = 200
 )
 
-normality1 + normality2 + decade1 + decade2 + decade3 + guide_area() + 
+normality1 + normality2 + decade1 + guide_area() + 
   plot_layout(design = layout1, guides = "collect", widths = c(1,1,1,1,0.7)) +
   plot_annotation(
     title = "Figure 1: Age Normality & CRC Variation across Age and Gender",
@@ -320,13 +273,216 @@ normality1 + normality2 + decade1 + decade2 + decade3 + guide_area() +
   ) &
   theme(
         plot.title = element_text(hjust = 0, size = 14),
-        plot.caption = element_text(hjust = 0, size = 10), 
+        plot.caption = element_text(hjust = 0, size = 12), 
         legend.key.size = unit(0.4, "cm"), 
-        legend.title = element_text(size = 10)
+        legend.title = element_text(size = 12)
   )
 ```
 
-After checking normality of the data, the age was divided into decades, with those 18 and 19 years old included in the 20-29 group to avoid a decade being visualized with only two years represented, and all those 80 years or older being grouped together as there was only one individual above 89 years. The decade separations represented by Figure 1-C clearly shows the two least represented decades in this study will be the 80+ and 30-39 decades (2.7% and 4.0%, respectively) and the three most represented being 60-69, 70-79, and 50-59 (34.4%, 21.8%, 19.9%, respectively; Appendix 1-C). Figure 1-D and 1-E represent this data in proportions for easier comparisons across the decades, with 1-E faceted by gender. It is well established that males have a higher relative risk of CRC than females (SOURCE), which appears to be reflected across most age groups. Visually, there appears to be far less samples with recorded comorbidities, represented by the "plus", as well as relatively less "PA" compared to "CRC" and "HC" overall.
+BMI is often associated with disease states (SOURCE) and is also a variable to be heavily considered when modelling. We examined the distribution of the BMI among the CRC progression classifiers (Figure 2-A) and while there were a few outliers, particularly in the upper BMI bounds of the "PA", "PA+", and "CRC" classifiers, there are visually striking differences among the means of the groupings, particularly those with comorbidities. To confirm, an ANOVA was ran (Appendix 3-C) which was found to be be statistically significant (95% confidence, p = \<2e-16), warranting a Tukey's HSD for further investigation. Of 21 pairings, 13 were found to be statistically significant to a 95% confidence level, meaning BMI could have an impact. It appears to have the most impact on "CRC-H" (5 pairings), "Other" (4 pairings), and "CRC" (4 pairings). BMI and age are also known to influence each other, thus it was decided to check if there would be any clustering or relationship visible when plotted against one another, shown in Figure 2-B. Associated linear models were conducted for each CRC progression classifier to check for potential relationships, which are also represented on the scatter plots (Appendix 3-D). Results of the age-centered, linear regression modelling shows a very low R-squared value of 0.0707, meaning that BMI and age only explains about 7% of the variance, though there are a few relationships that show statistical significance to a 95% confidence level, such as in "CRC-H" and "Other". With such low explanation of the variance, it would be interesting to see how this might extend or not towards the taxa and pathway relationships in the gut microbiome.
+
+```{r, echo=FALSE}
+#| label: BMI Associations
+#| fig-width: 14
+#| fig-height: 7
+#| fig-dpi: 500
+# ---
+
+# BMI ~~~~~~~~~~~~~~~~~~~~~~
+############################
+
+# Box Plot 
+##########
+bmi1 <- qualifying_studies %>%   
+  # Set Up   
+  # ------   
+  filter(!is.na(BMI)) %>%   
+  # Plotting   
+  # --------   
+  ggplot(aes(x=disease_class, y=BMI)) +    
+  geom_boxplot(outlier.shape = NA) +   
+  geom_jitter(alpha = 0.15, width = 0.15) +   
+  stat_summary(fun = mean, geom = "point", shape = 20, size = 5, color = "red") +
+  # Labeling   
+  #--------- 
+  labs(
+    title = "Distribution of BMI by CRC Progression Classifier", 
+    x = "CRC Progression Classifiers", 
+    y = "BMI"
+  ) +
+  theme(plot.title = element_text(size = 12))
+    
+
+# Scatterplot by CRC Progression 
+################################
+bmi2 <- qualifying_studies %>% 
+  # Set Up   
+  # ------   
+  filter (!is.na(age), !is.na(BMI)) %>% 
+  # Plotting   
+  # --------   
+  ggplot(aes(x=age, y=BMI)) +    
+  geom_point(aes(color = disease_class, alpha = 0.7)) + 
+  geom_smooth(method = "lm", se = TRUE, formula = y ~ x, color = "grey40") +
+  scale_color_manual(values = progression_colors, 
+                     name = "CRC Progression Classifiers") +
+  facet_wrap(~disease_class) +
+  # Labeling   
+  #---------  
+  labs(
+    title = "Age by BMI, Colored by CRC Progression Classifier", 
+    x = "Age", 
+    y = "BMI"
+  ) +
+  theme(plot.title = element_text(size = 12), 
+        legend.position = "none")
+
+# Display
+#########
+layout2 <- c( # t, l , b = t, r = l
+  area(1, 1, 2, 3), 
+  area(1, 4, 2, 6)
+)
+
+#plot(layout2)
+
+BMI_caption <- str_wrap(
+  "(A) Box plot of BMI by CRC progression classifier. The red dot marks the mean, while the black line marks the median. All classifiers generally have a normal distribution.
+   (B) Scatter plots of age by BMI, with a linear model regression line of y ~ x, faceted by CRC progression classifier. Notice that there is minimally notable clustering.", 
+  width = 200
+)
+
+bmi1 + bmi2 +
+  plot_layout(design = layout2) +
+  plot_annotation(
+    title = "Figure 2: BMI Associations with CRC Progression Classifiers",
+    tag_levels = "A",
+    caption = BMI_caption
+  ) &
+  theme(
+        plot.title = element_text(hjust = 0, size = 14),
+        plot.caption = element_text(hjust = 0, size = 12), 
+        legend.key.size = unit(0.5, "cm"), 
+        legend.title = element_text(size = 10), 
+        legend.direction = "horizontal"
+  )
+```
+
+Geographical location and consequently diet are also well established to be linked to CRC development (SOURCE). The three most affected countries by CRC—Japan, the United States, and China (SOURCE)—are well represented in this multi-cohort study at 38.9%, 17.0%, and 7.2% respectively (Figure 2-A, Appendix 1-D). This is important for our study to ensure that our results and model will be applicable to the most vulnerable target populations. Within these three target countries, there is representation from 6 of our classifiers, visible in Figures 2-B and 2-C: "Other", "HC", "PA", "CRC", "CRC+", and "CRC-H". The only unrepresented classifier is "PA+". Country is often closely tied to diet, however it is often not collected as a data point in studies, which is reflected in this data set, with only 276 data points containing information regarding diet, approximately 98.4% classified as omnivores and the remainder (10 samples) representing vegetarians, which may not be enough data points to investigate variability in diet as a factor in CRC progression, as it may over inflate proportions of different stages of the disease, like in various visualizations attempted (Appendix 2-C).
+
+```{r, echo=FALSE}
+#| label: Countries Associations
+#| fig-width: 14
+#| fig-height: 7
+#| fig-dpi: 500
+# ---
+
+# Countries ~~~~~~~~~~~~~~~~
+############################
+
+# Country Count
+###############
+country1 <- qualifying_studies  %>% 
+  # Set Up
+  # ------
+  filter(!is.na(country)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = reorder(country, country, 
+                         FUN = function(x) -length(x)))) + 
+  geom_bar() +
+  # Labeling
+  #---------
+  geom_text(stat = "count", aes(label = after_stat(count)), 
+            vjust = -0.21, size = 3, color = "black") +
+  labs(
+    title = "Country Sample Count Distribution", 
+    x = "Country (NATO country code, trigram)", 
+    y = "Count") +
+  theme( 
+        legend.position = "none", 
+        plot.title = element_text(size = 12))
+
+# Country Fill
+##############
+country2 <- qualifying_studies  %>% 
+  # Set Up
+  # ------
+  filter(!is.na(country)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = reorder(country, country, 
+                         FUN = function(x) -length(x)), 
+             fill=disease_class)) + 
+  geom_bar() +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression Classifiers") +
+  # Labeling
+  #---------
+  labs(title = "Country Sample Count Distribution",
+       subtitle = "with CRC Progression Classifiers",
+       x = "Country (NATO country code, trigram)", 
+       y = "Count") +
+  theme( 
+        legend.position = "none", 
+        plot.title = element_text(size = 12))
+
+# Countries Proportions
+#######################
+country3 <- qualifying_studies %>% 
+  # Set Up
+  # ------
+  filter(!is.na(country)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = reorder(country, country, 
+                         FUN = function(x) -length(x)), fill = disease_class)) + 
+  geom_bar(position = "fill") +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression Classifiers") +
+  # Labeling
+  #---------
+  labs(
+    title = "Proportion of CRC Progression Per Country", 
+    x = "Country (NATO country code, trigram)", 
+    y = "Proportion") +
+  theme( 
+        plot.title = element_text(size = 12))
+
+
+# Display
+#########
+layout3 <- c( # t, l , b = t, r = l
+  area(1, 1, 2, 2),
+  area(1, 3, 2, 4),
+  area(1, 5, 2, 6),
+  area(3, 3, 3, 4)
+)
+
+#plot(layout3)
+
+geography_caption <- str_wrap(
+  "(A)  
+   (B) 
+   (C) ", 
+  width = 200
+)
+
+country1 + country2 + country3 + guide_area() + 
+  plot_layout(design = layout3, guides = "collect") +
+  plot_annotation(
+    title = "Figure 3: Country Associations with CRC Progression Classifiers",
+    tag_levels = "A",
+    caption = geography_caption
+  ) &
+  theme(
+        plot.title = element_text(hjust = 0, size = 14),
+        plot.caption = element_text(hjust = 0, size = 11), 
+        legend.key.size = unit(0.5, "cm"), 
+        legend.title = element_text(size = 10), 
+        legend.direction = "horizontal"
+  )
+```
 
 #### Taxa & Pathway Analysis (Cory)
 
