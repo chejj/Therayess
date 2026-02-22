@@ -330,6 +330,280 @@ After checking normality of the data, the age was divided into decades, with tho
 
 #### Taxa & Pathway Analysis (Cory)
 
+The combined filtered datasets from curatedMetaGenomicData contain over 1000 taxa. To identify any trends in the data, we looked at beta-diversity, which is a test for dissimilarity between the study conditions. Although the p-value was highly significant (P = 0.001), the R-squared value (R^2 = 0.0078) indicates much of the disimilarity is not explained by the study conditions.
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| fig-width: 14
+#| fig-height: 6
+#| fig-align: center
+
+library(vegan)
+library(mia)
+library(scater)
+
+data <- returnSamples(
+  qualifying_studies,
+  dataType = "relative_abundance",
+  counts = TRUE
+)
+
+# Calculate distance matrix
+dist_matrix <- vegdist(t(assay(data, "relative_abundance")), 
+                       method = "bray")
+
+# Get metadata
+metadata <- colData(data) %>% as.data.frame()
+
+# PERMANOVA test
+permanova_result <- adonis2(dist_matrix ~ study_condition, 
+                            data = metadata, 
+                            permutations = 999)
+
+# Extract R-squared and p-value
+r_squared <- permanova_result$R2[1]
+p_value <- permanova_result$`Pr(>F)`[1]
+
+data %>% 
+  agglomerateByRanks() %>%
+  runMDS(FUN = vegdist, method = "bray", exprs_values = "relative_abundance", altexp = "genus", name = "BrayCurtis") %>%
+  plotReducedDim("BrayCurtis", colour_by = "study_condition", shape_by = "age_decade") +
+  labs(x = "PCo 1", y = "PCo 2",
+       subtitle = glue::glue("PERMANOVA: R² = {round(r_squared, 4)}, p = {round(p_value, 4)}")) +
+  guides(colour = guide_legend(title = "Study Condition"), shape = guide_legend(title = "Age (by decade)")) +
+  theme(legend.position = c(0.01, 0.28),
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 13),
+        plot.subtitle = element_text(size = 12))
+
+```
+
+To understand how the taxa are distributed across the different study conditions, two relative abundance plots were generated at the family and genus level.
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| fig-width: 14
+#| fig-height: 6
+#| fig-align: center
+
+library(tidyverse)
+library(patchwork)
+
+data <- returnSamples(
+  qualifying_studies,
+  dataType = "relative_abundance",
+  counts = TRUE
+)
+
+fareblind15 <- c("#000000","#004949","#009292","#FF6DB6","#FFB6DB",
+                   "#490092","#006DDB","#B66DFF","#6DB6FF","#B6DBFF",
+                   "#920000","#924900","#DB6D00","#24FF24","#FFFF6D") 
+
+# Extract and aggregate
+abund_data <- assay(data, "relative_abundance")
+sample_meta <- colData(data) %>% as.data.frame()
+tax_data <- rowData(data) %>% as.data.frame()
+
+# Convert to long format
+abund_long <- abund_data %>%
+  as.data.frame() %>%
+  rownames_to_column("taxon") %>%
+  pivot_longer(-taxon, names_to = "sample", values_to = "abundance")
+
+# Add metadata
+sample_meta$sample <- rownames(sample_meta)
+
+# Merge and aggregate
+abund_agg <- abund_long %>%
+  merge(sample_meta[, c("sample", "study_condition")], by = "sample") %>%
+  group_by(taxon, study_condition) %>%
+  summarise(abundance = mean(abundance), .groups = "drop")
+
+#######################################################
+#Group by
+# Extract genus level
+abund_long_genus <- abund_data %>%
+  as.data.frame() %>%
+  rownames_to_column("taxon") %>%
+  mutate(genus = str_extract(taxon, "g__[^|]*")) %>%  # Extract genus
+  mutate(genus = str_remove(genus, "g__")) %>%  # Remove the g__ prefix
+  pivot_longer(-c(taxon, genus), names_to = "sample", values_to = "abundance")
+
+# Then aggregate by genus instead of taxon
+abund_agg <- abund_long_genus %>%
+  merge(sample_meta[, c("sample", "study_condition")], by = "sample") %>%
+  group_by(genus, study_condition) %>%
+  summarise(abundance = sum(abundance), .groups = "drop")  # Sum instead of mean
+
+# Get top 15 genera
+top_genera <- abund_long_genus %>%
+  group_by(genus) %>%
+  summarise(mean_abund = mean(abundance)) %>%
+  arrange(desc(mean_abund)) %>%
+  slice_head(n = 15) %>%
+  pull(genus)
+
+# Filter and normalize
+abund_normalized <- abund_agg %>%
+  filter(genus %in% top_genera) %>%
+  group_by(study_condition) %>%
+  mutate(relative_abundance = abundance / sum(abundance)) %>%
+  ungroup()
+
+# Plot
+p1 <- abund_normalized %>%
+  ggplot(aes(x = study_condition, y = relative_abundance, fill = genus)) +
+  geom_col() +
+  scale_fill_manual(values = fareblind15) +
+  coord_flip() +
+  ggtitle("Gut microbiota by condition (Genus level)") +
+  theme_minimal()
+
+
+######################################
+# Group by Family
+abund_long_family <- abund_data %>%
+  as.data.frame() %>%
+  rownames_to_column("taxon") %>%
+  mutate(family = str_extract(taxon, "f__[^|]*")) %>%  # Extract family
+  mutate(family = str_remove(family, "f__")) %>%  # Remove the g__ prefix
+  pivot_longer(-c(taxon, family), names_to = "sample", values_to = "abundance")
+
+# Then aggregate by family instead of taxon
+abund_agg <- abund_long_family %>%
+  merge(sample_meta[, c("sample", "study_condition")], by = "sample") %>%
+  group_by(family, study_condition) %>%
+  summarise(abundance = sum(abundance), .groups = "drop")  # Sum instead of mean
+
+# Get top 15 genera
+top_genera <- abund_long_family %>%
+  group_by(family) %>%
+  summarise(mean_abund = mean(abundance)) %>%
+  arrange(desc(mean_abund)) %>%
+  slice_head(n = 15) %>%
+  pull(family)
+
+# Filter and normalize
+abund_normalized <- abund_agg %>%
+  filter(family %in% top_genera) %>%
+  group_by(study_condition) %>%
+  mutate(relative_abundance = abundance / sum(abundance)) %>%
+  ungroup()
+
+# Plot
+p2 <- abund_normalized %>%
+  ggplot(aes(x = study_condition, y = relative_abundance, fill = family)) +
+  geom_col() +
+  scale_fill_manual(values = fareblind15) +
+  coord_flip() +
+  ggtitle("Gut microbiota by condition (Family level)") +
+  theme_minimal()
+
+figure_2_caption <- str_wrap(
+  "(A) Study condition
+   (B) Histogram demonstrating a bimodal age distribution with a secondary peak near 25 years and a primary peak near 60 years.",
+  width = 120
+)
+
+
+p2 + p1 + plot_layout(ncol = 2)  # Side by side
+```
+
+The Relative abundance stacked barplots also indicate there was very little difference at the family and genus taxonomic levels. Considering these datasets cover several countries and age categories, it is possible that further separation into more groups may provide better comparisons. As Japan and the United States contain the greatest number of participants, these countries were separated out. Then, for the same reason, we compared only the control and CRC groups, since these health conditions also have the highest sample sizes. To identify key differences in how taxa may be enriched between groups, differential abundance was looked at using LEfSe analysis. Using a reference and a treatment, LEfSe performs Kruskal-Wallis test to identify taxa that were statistically different from zero between the control and CRC groups. Taxa found to be statistically significant were run with a Wilconox Rank-Sum Test to perform pairwise comparisons. Finally, the effect size is calculated using linear distriminant analysis (LDA).
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| fig-width: 14
+#| fig-height: 6
+#| fig-align: center
+
+library(lefser)
+
+#Filter data for Japan
+data_JPN <- data[, data$country == "JPN"]
+
+data_JPN <- data_JPN[, data_JPN$study_condition == c("control","CRC")]
+
+data_JPN_genus <- agglomerateByRank(data_JPN, rank = "genus")
+
+
+p1b <- lefser(
+  relativeAb(data_JPN_genus),
+  kruskal.threshold = 0.05,
+  wilcox.threshold = 0.05,
+  lda.threshold = 2,
+  classCol = "study_condition",
+  subclassCol = NULL,
+  assay = 1L,
+  trim.names = FALSE,
+  checkAbundances = TRUE
+) %>%
+  lefserPlot() +
+  labs(title = "Japan - CRC vs Control", subtitle = "LEfSe Analysis")
+
+#Filter data for United States
+data_USA <- data[, data$country == "USA"]
+
+data_USA <- data_USA[, data_USA$study_condition == c("control","CRC")]
+
+data_USA_genus <- agglomerateByRank(data_USA, rank = "genus")
+
+
+p2b <- lefser(
+  relativeAb(data_USA_genus),
+  kruskal.threshold = 0.05,
+  wilcox.threshold = 0.05,
+  lda.threshold = 2,
+  classCol = "study_condition",
+  subclassCol = NULL,
+  assay = 1L,
+  trim.names = FALSE,
+  checkAbundances = TRUE
+) %>%
+  lefserPlot() +
+  labs(title = "United States = CRC vs Control")
+
+library(patchwork)
+
+# Save lefser results before plotting
+res_JPN <- lefser(
+  relativeAb(data_JPN_genus),
+  kruskal.threshold = 0.05,
+  wilcox.threshold = 0.05,
+  lda.threshold = ,
+  classCol = "study_condition"
+)
+
+res_USA <- lefser(
+  relativeAb(data_USA_genus),
+  kruskal.threshold = 0.05,
+  wilcox.threshold = 0.05,
+  lda.threshold = 2,
+  classCol = "study_condition"
+)
+
+# Filter for CRC-associated taxa (positive LDA scores, assuming CRC is the positive class)
+crc_JPN <- res_JPN[res_JPN$scores > 0, "features"]
+crc_USA <- res_USA[res_USA$scores > 0, "features"]
+
+p1b + p2b
+
+# Find common taxa
+intersect(crc_JPN, crc_USA)
+
+bugsInCommon <- intersect(crc_JPN, crc_USA)
+
+```
+Three genera (Bautia, Collinsella, and Dorea) were found to have greater abundance in CRC samples compared to controls. This warrants further investigation....
+
 #### Data Limitations
 
 ### Conclusion
