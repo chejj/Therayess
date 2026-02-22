@@ -16,19 +16,19 @@ author:
 
 # Delete Before Submitting
 
-+-----------+---------------------------------------------------------------+
-| Student   | Assignment                                                    |
-+===========+===============================================================+
-| Cory      | Country & Category                                            |
-+-----------+---------------------------------------------------------------+
-| Kaitlyn   | Age & Sex                                                     |
-|           |                                                               |
-|           | Data Availability Table (Show's what cMD has from each study) |
-+-----------+---------------------------------------------------------------+
-| Faith     | Limitations (Missing Data, Pop size, etc.)                    |
-+-----------+---------------------------------------------------------------+
-| Jacob     | Summary Stats, Glossary & Introduction                        |
-+-----------+---------------------------------------------------------------+
++-------------+---------------------------------------------------------------+
+| Student     | Assignment                                                    |
++=============+===============================================================+
+| Cory        | Country & Category                                            |
++-------------+---------------------------------------------------------------+
+| Kaitlyn     | Age & Sex                                                     |
+|             |                                                               |
+|             | Data Availability Table (Show's what cMD has from each study) |
++-------------+---------------------------------------------------------------+
+| Faith       | Limitations (Missing Data, Pop size, etc.)                    |
++-------------+---------------------------------------------------------------+
+| Jacob       | Summary Stats, Glossary & Introduction                        |
++-------------+---------------------------------------------------------------+
 
 ### Assignment Guidelines from Canvas
 
@@ -148,15 +148,23 @@ Yada Yada Yada
 
 ##### Diagnostic Categories
 
-| Abbreviation | Description |
-|----|----|
-| HC | Healthy control |
-| PA | Polyp / adenoma |
-| PA+ | Polyp / adenoma with comorbidities |
-| CRC | Colorectal cancer |
-| CRC-H | History of colorectal cancer with resection |
-| CRC+ | Colorectal cancer with comorbidities |
-| Other | Any diagnosed disease without current or history of CRC-related growths |
++----------------------------------+-------------------------------------------------------------------------+
+| Abbreviation                     | Description                                                             |
++==================================+=========================================================================+
+| HC                               | Healthy control                                                         |
++----------------------------------+-------------------------------------------------------------------------+
+| PA                               | Polyp / adenoma                                                         |
++----------------------------------+-------------------------------------------------------------------------+
+| PA+                              | Polyp / adenoma with comorbidities                                      |
++----------------------------------+-------------------------------------------------------------------------+
+| CRC                              | Colorectal cancer                                                       |
++----------------------------------+-------------------------------------------------------------------------+
+| CRC-H                            | History of colorectal cancer with resection                             |
++----------------------------------+-------------------------------------------------------------------------+
+| CRC+                             | Colorectal cancer with comorbidities                                    |
++----------------------------------+-------------------------------------------------------------------------+
+| Other                            | Any diagnosed disease without current or history of CRC-related growths |
++----------------------------------+-------------------------------------------------------------------------+
 
 ### Exploratory Data Analysis
 
@@ -482,11 +490,11 @@ The combined filtered datasets from curatedMetaGenomicData contain over 1000 tax
 
 ```{r}
 #| echo: false
-#| warning: false
 #| message: false
-#| fig-width: 14
-#| fig-height: 6
+#| warning: false
 #| fig-align: center
+#| fig-height: 6
+#| fig-width: 14
 
 library(vegan)
 library(mia)
@@ -760,7 +768,37 @@ While this work assesses the feasibility of leveraging human gut microbiome “f
 A rather major limitation is the incomplete availability of clinically and biologically relevant metadata across the various studies in our analysis. The metadata completeness analysis shown below visualises this. There is only a subset of variables that are consistently available throughout the data such as the sequencing platform use, participant country, gender, age and age by decade, BMI, and disease class. This is unfortunate because it is known that the microbiome is drastically influenced by variables that are not consistent such as antibiotic use, smoking status, alcohol consumption, and disease stages [(Tegegne & Savidge, 2025)](https://www.zotero.org/google-docs/?OPR4V4). The original use case was intended to be applied to antibiotic usage which will unfortunately need to be pushed until more complete data sets are available. 
 
 ```{r, echo=FALSE}
+
+#| label: Metadata heat map 
+
+
+#creating a metadata heatmap showing some variables that aren't used downstream
+meta_vars <- c(
+  # Demographics
+  "age", "age_decade", "gender", "BMI",
   
+  # Lifestyle / exposures
+  "diet", "alcohol", "alcohol_numeric", "smoker", "ever_smoker",
+  "antibiotics_current_use",
+  
+  # Clinical context
+  "disease_class", "disease_stage", "disease_location",
+  
+  # Geography
+  "country", "location", "population",
+  
+  # Technical
+  "sequencing_platform", "DNA_extraction_kit",
+  
+  # Timing
+  "days_from_first_collection", "days_after_onset"
+)
+
+# Confirm they exist
+#meta_vars[meta_vars %in% colnames(qualifying_studies)]
+
+#compute metadata completeness (percent of non-mising data)
+
 meta_completeness <- qualifying_studies %>%
   summarise(across(all_of(meta_vars), ~ mean(!is.na(.)))) %>%
   pivot_longer(
@@ -770,9 +808,10 @@ meta_completeness <- qualifying_studies %>%
   ) %>%
   mutate(completeness = completeness * 100)
 
-print(meta_completeness)
+#print(meta_completeness)
 
 #create a heatmap for metadata completeness 
+#library(ggplot2)
 meta_completeness <- meta_completeness %>%
   arrange(completeness) %>%
   mutate(variable = factor(variable, levels = variable))
@@ -787,8 +826,8 @@ ggplot(meta_completeness,
     name = "% samples\nwith data"
   ) +
   labs(
-    title = "Metadata Completeness in CRC Related Metagenomic Samples",
-    subtitle = "Percent of samples with non-missing values per variable",
+    title = str_wrap("Metadata Completeness in CRC Related Metagenomic Samples"),
+    subtitle = str_wrap("Percent of samples with non-missing values per variable"),
     x = NULL,
     y = NULL
   ) +
@@ -796,12 +835,10 @@ ggplot(meta_completeness,
   theme(
     axis.text.x = element_blank(),
     axis.ticks.x = element_blank(),
-    plot.title = element_text(face = "bold"),
-    plot.subtitle = element_text(size = 10)
+    #center justify titles
+    plot.title = element_text(face = "bold", size = 12, hjust=0.5),
+    plot.subtitle = element_text(size = 10, hjust=0.5)
   )
-
-
-
 
 
 
@@ -815,6 +852,9 @@ Other limitations came about after the filtering of the dataset to keep data con
 As this dataset is a compilation, there are other considerations to factor in, specifically the difference in laboratory techniques, sequencing machines, extraction kits, and protocols used throughout all of the studies. These variables are documented but they cannot be fully corrected for so they must be mentioned as they create biological noise in an exploratory modeling approach such as this
 
 ```{r, echo=FALSE}
+#| label: Sequencing variations
+
+
 #create ggplot of studies selected and sequencing platform and extraction kit used
 #summary table with counts per study X
 study_tech_summary <- qualifying_studies %>%
@@ -824,7 +864,7 @@ study_tech_summary <- qualifying_studies %>%
   ) %>%
   count(study_name, sequencing_platform, DNA_extraction_kit)
     #sanity check lol
-head(study_tech_summary)
+#head(study_tech_summary)
 #create ggplot
 ggplot(
   study_tech_summary,
@@ -838,10 +878,14 @@ ggplot(
   facet_wrap(~ sequencing_platform, scales = "free_y") +
   theme_bw() +
   labs(
-    title = "Sequencing Platforms and DNA Extraction Kits Across CRC-Relevant Studies",
+    title = str_wrap("Sequencing Platforms and DNA Extraction Kits Across CRC-Relevant Studies", width = 50),
     x = "Number of samples",
     y = "Study name",
     fill = "DNA extraction kit"
+  ) +
+  theme(
+    # Centers the main title
+    plot.title = element_text(hjust = 0.5, face = "bold")
   )
 
 
