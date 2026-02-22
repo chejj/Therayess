@@ -471,9 +471,23 @@ summary(age_bmi_scatterplot_lm)
 
 ## Appendix 4 - Relevant R Scripts
 
-### 4-A: Dry_Runs.R
+### 4-A: cMD3 Installation
 
-A script used to determine what information was available on our qualifying studies and print to individual text files. Text files can be found on the GitHub for this project in the described file path in the script
+A script used to install BiocManager and the cMD3 package for the first time.
+
+```{=}
+##############
+# Install cMD3
+##############
+
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("curatedMetagenomicData")
+```
+### 4-B: Dry_Runs.R
+
+A script used to determine what information was available on our qualifying studies and print to individual text files. Text files can be found on the GitHub for this project in the described file path in the script.
 
 ```         
 ##########
