@@ -451,7 +451,18 @@ TukeyHSD(bmi_CRC_ANOVA2, conf.level=.95)
 ```{r}
 #| label: LM to match faceted scatterplot
 
-age_bmi_scatterplot_lm <- lm(BMI ~ age * disease_class, 
+qualifying_studies$age_centered <- scale(
+  qualifying_studies$age,
+  center = TRUE,
+  scale = FALSE
+)
+
+qualifying_studies$disease_class <- relevel(
+  qualifying_studies$disease_class,
+  ref = "HC" # Changed to refer to healthy control rather than "Other"
+)
+
+age_bmi_scatterplot_lm <- lm(BMI ~ age_centered * disease_class, 
                data = qualifying_studies)
 
 summary(age_bmi_scatterplot_lm)
