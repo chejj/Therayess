@@ -602,7 +602,7 @@ intersect(crc_JPN, crc_USA)
 bugsInCommon <- intersect(crc_JPN, crc_USA)
 
 ```
-Three genera (Bautia, Collinsella, and Dorea) were found to have greater abundance in CRC samples compared to controls. This warrants further investigation....
+Three genera (Blautia, Collinsella, and Dorea) were found to have greater abundance in CRC samples compared to controls. This warrants further investigation....
 
 #### Data Limitations
 
