@@ -16,20 +16,6 @@ author:
 
 # Delete Before Submitting
 
-+-------------+---------------------------------------------------------------+
-| Student     | Assignment                                                    |
-+=============+===============================================================+
-| Cory        | Country & Category                                            |
-+-------------+---------------------------------------------------------------+
-| Kaitlyn     | Age & Sex                                                     |
-|             |                                                               |
-|             | Data Availability Table (Show's what cMD has from each study) |
-+-------------+---------------------------------------------------------------+
-| Faith       | Limitations (Missing Data, Pop size, etc.)                    |
-+-------------+---------------------------------------------------------------+
-| Jacob       | Summary Stats, Glossary & Introduction                        |
-+-------------+---------------------------------------------------------------+
-
 ### Assignment Guidelines from Canvas
 
 [**Step 1: EDA Objectives & Preparing data**]{.underline}
@@ -99,21 +85,18 @@ author:
 #| label: Setup
 source("Qualifying_Studies_List.R")
 suppressPackageStartupMessages({
-  library(dplyr)
+  library(tidyverse)
   library(knitr)
   library(kableExtra)
-  library(mosaic)
-  library(ggplot2)
-  library(grid)
-  library(gridExtra)
-  library(knitr)
   library(patchwork)
-  library(tidyr)
-  library(tidyverse)
+
   library(vegan)
   library(mia)
   library(scater)
   library(lefser)
+
+  library(grid)
+  library(gridExtra)
 })
 
 progression_order <- c(
@@ -147,35 +130,25 @@ qualifying_studies <- qualifying_studies %>%
 
 ### Introduction
 
-### Glossary
-
-Yada Yada Yada
+#### Glossary
 
 ##### Diagnostic Categories
 
-+----------------------------------+-------------------------------------------------------------------------+
-| Abbreviation                     | Description                                                             |
-+==================================+=========================================================================+
-| HC                               | Healthy control                                                         |
-+----------------------------------+-------------------------------------------------------------------------+
-| PA                               | Polyp / adenoma                                                         |
-+----------------------------------+-------------------------------------------------------------------------+
-| PA+                              | Polyp / adenoma with comorbidities                                      |
-+----------------------------------+-------------------------------------------------------------------------+
-| CRC                              | Colorectal cancer                                                       |
-+----------------------------------+-------------------------------------------------------------------------+
-| CRC-H                            | History of colorectal cancer with resection                             |
-+----------------------------------+-------------------------------------------------------------------------+
-| CRC+                             | Colorectal cancer with comorbidities                                    |
-+----------------------------------+-------------------------------------------------------------------------+
-| Other                            | Any diagnosed disease without current or history of CRC-related growths |
-+----------------------------------+-------------------------------------------------------------------------+
+| Abbreviation | Description |
+|------------------------------------|------------------------------------|
+| HC | Healthy control |
+| PA | Polyp / adenoma |
+| PA+ | Polyp / adenoma with comorbidities |
+| CRC | Colorectal cancer |
+| CRC-H | History of colorectal cancer with resection |
+| CRC+ | Colorectal cancer with comorbidities |
+| Other | Any diagnosed disease without current or history of CRC-related growths |
 
 ### Exploratory Data Analysis
 
-#### Data Availability
+#### Data Availability (Jake)
 
-#### Metadata Analysis (Kaitlyn)
+#### Metadata Analysis
 
 Of great benefit to having the cMD3 database is the standardization of the metadata, allowing for the analysis of potential confounding variables for biases and major discrepancies in the data that may influence the results and interpretations downstream. With prior evidence supporting age, gender, diet, geographical location, and BMI as factors that influence the relative risk of CRC (Dakal et al., 2025; O’Keefe, 2016; Singh et al., 2017), they are important variables to consider in our EDA and to sources of distribution bias or significance.
 
@@ -284,95 +257,6 @@ normality1 + normality2 + decade1 + guide_area() +
   )
 ```
 
-BMI has been previously associated with microbial shifts (Li et al., 2025) and should be heavily considered when modelling. We examined the distribution of the BMI among the CRC progression classifiers (Figure 2-A) and while there were a few outliers, particularly in the upper BMI bounds of the "PA", "PA+", and "CRC" classifiers, there are visually striking differences among the means of the groupings, particularly those with comorbidities. To confirm, an ANOVA was run (Appendix 3-C) which was found to be statistically significant (95% confidence, p = \<2e-16), warranting a Tukey's HSD for further investigation. Of 21 pairings, 13 were found to be statistically significant to a 95% confidence level, meaning BMI could have an impact. It appears to have the most impact on "CRC-H" (5 pairings), "Other" (4 pairings), and "CRC" (4 pairings). BMI and age are also known to influence each other, thus it was decided to check if there would be any clustering or relationship visible when plotted against one another, shown in Figure 2-B. Associated linear models were conducted for each CRC progression classifier to check for potential relationships, which are also represented on the scatter plots (Appendix 3-D). Results of the age-centered, linear regression modelling shows a very low R-squared value of 0.0707, meaning that BMI and age only explains about 7% of the variance, though there are a few relationships that show statistical significance to a 95% confidence level, such as in "CRC-H" and "Other". With such a low explanation of the variance, it would be interesting to see how this may or may not extend towards the taxa and pathway relationships in the gut microbiome.
-
-```{r, echo=FALSE}
-#| label: BMI Associations
-#| fig-width: 14
-#| fig-height: 7
-#| fig-dpi: 500
-# ---
-
-# BMI ~~~~~~~~~~~~~~~~~~~~~~
-############################
-
-# Box Plot 
-##########
-bmi1 <- qualifying_studies %>%   
-  # Set Up   
-  # ------   
-  filter(!is.na(BMI)) %>%   
-  # Plotting   
-  # --------   
-  ggplot(aes(x=disease_class, y=BMI)) +    
-  geom_boxplot(outlier.shape = NA) +   
-  geom_jitter(alpha = 0.15, width = 0.15) +   
-  stat_summary(fun = mean, geom = "point", shape = 20, size = 5, color = "red") +
-  # Labeling   
-  #--------- 
-  labs(
-    title = "Distribution of BMI by CRC Progression Classifier", 
-    x = "CRC Progression Classifiers", 
-    y = "BMI"
-  ) +
-  theme(plot.title = element_text(size = 12))
-    
-
-# Scatterplot by CRC Progression 
-################################
-bmi2 <- qualifying_studies %>% 
-  # Set Up   
-  # ------   
-  filter (!is.na(age), !is.na(BMI)) %>% 
-  # Plotting   
-  # --------   
-  ggplot(aes(x=age, y=BMI)) +    
-  geom_point(aes(color = disease_class, alpha = 0.7)) + 
-  geom_smooth(method = "lm", se = TRUE, formula = y ~ x, color = "grey40") +
-  scale_color_manual(values = progression_colors, 
-                     name = "CRC Progression Classifiers") +
-  facet_wrap(~disease_class) +
-  # Labeling   
-  #---------  
-  labs(
-    title = "Age by BMI, Colored by CRC Progression Classifier", 
-    x = "Age", 
-    y = "BMI"
-  ) +
-  theme(plot.title = element_text(size = 12), 
-        legend.position = "none")
-
-# Display
-#########
-layout2 <- c( # t, l , b = t, r = l
-  area(1, 1, 2, 3), 
-  area(1, 4, 2, 6)
-)
-
-#plot(layout2)
-
-BMI_caption <- str_wrap(
-  "(A) Box plot of BMI by CRC progression classifier. The red dot marks the mean, while the black line marks the median. All classifiers generally have a normal distribution.
-   (B) Scatter plots of age by BMI, with a linear model regression line of y ~ x, faceted by CRC progression classifier. Notice that there is minimally notable clustering.", 
-  width = 200
-)
-
-bmi1 + bmi2 +
-  plot_layout(design = layout2) +
-  plot_annotation(
-    title = "Figure 2: BMI Associations with CRC Progression Classifiers",
-    tag_levels = "A",
-    caption = BMI_caption
-  ) &
-  theme(
-        plot.title = element_text(hjust = 0, size = 14),
-        plot.caption = element_text(hjust = 0, size = 12), 
-        legend.key.size = unit(0.5, "cm"), 
-        legend.title = element_text(size = 10), 
-        legend.direction = "horizontal"
-  )
-```
-
 Geographical location and consequently diet are also well established to be linked to CRC development (Dakal et al., 2025; Li et al., 2025; Singh et al., 2017). The three most affected countries by CRC—Japan, the United States, and China (Colorectal Cancer Statistics, n.d.; Worldwide Cancer Data, n.d.)—are well represented in this multi-cohort study at 38.9%, 17.0%, and 7.2% respectively (Figure 2-A, Appendix 1-D). This is important for our study to ensure that our results and model will be applicable to the most vulnerable target populations. Within these three target countries, there is representation from 6 of our classifiers, visible in Figures 2-B and 2-C: "Other", "HC", "PA", "CRC", "CRC+", and "CRC-H". The only unrepresented classifier is "PA+". Country is often closely tied to diet, however it is often not collected as a data point in studies, which is reflected in this data set, with only 276 data points containing information regarding diet, approximately 98.4% classified as omnivores and the remainder (10 samples) representing vegetarians, which may not be enough data points to investigate variability in diet as a factor in CRC progression, as it may over inflate proportions of different stages of the disease, like in various visualizations attempted (Appendix 2-C).
 
 ```{r, echo=FALSE}
@@ -475,7 +359,7 @@ geography_caption <- str_wrap(
 country1 + country2 + country3 + 
   plot_layout(design = layout3, guides = "collect", heights = c(1, 0.18)) +
   plot_annotation(
-    title = "Figure 3: Country Associations with CRC Progression Classifiers",
+    title = "Figure 2: Country Associations with CRC Progression Classifiers",
     tag_levels = "A",
     caption = geography_caption
   ) &
@@ -489,11 +373,101 @@ country1 + country2 + country3 +
   )
 ```
 
-#### Taxonomic & Pathway Analysis (Cory)
+BMI has been previously associated with microbial shifts (Li et al., 2025) and should be heavily considered when modelling. We examined the distribution of the BMI among the CRC progression classifiers (Figure 3-A) and while there were a few outliers, particularly in the upper BMI bounds of the "PA", "PA+", and "CRC" classifiers, there are visually striking differences among the means of the groupings, particularly those with comorbidities. To confirm, an ANOVA was run (Appendix 3-C) which was found to be statistically significant (95% confidence, p = \<2e-16), warranting a Tukey's HSD for further investigation. Of 21 pairings, 13 were found to be statistically significant to a 95% confidence level, meaning BMI could have an impact. It appears to have the most impact on "CRC-H" (5 pairings), "Other" (4 pairings), and "CRC" (4 pairings). BMI and age are also known to influence each other, thus it was decided to check if there would be any clustering or relationship visible when plotted against one another, shown in Figure 3-B. Associated linear models were conducted for each CRC progression classifier to check for potential relationships, which are also represented on the scatter plots (Appendix 3-D). Results of the age-centered, linear regression modelling shows a very low R-squared value of 0.0707, meaning that BMI and age only explains about 7% of the variance, though there are a few relationships that show statistical significance to a 95% confidence level, such as in "CRC-H" and "Other". With such a low explanation of the variance, it would be interesting to see how this may or may not extend towards the taxonomic and pathway relationships in the gut microbiome.
 
-The combined filtered data sets from curatedMetaGenomicData contain over 1000 taxa. To identify any trends in the data, we looked at beta-diversity, which is a test for dissimilarity between the study conditions. Although the p-value was highly significant (P = 0.001), the R-squared value (R\^2 = 0.0078) indicates much of the dissimilarity is not explained by the study conditions.
+```{r, echo=FALSE}
+#| label: BMI Associations
+#| fig-width: 14
+#| fig-height: 7
+#| fig-dpi: 500
+# ---
+
+# BMI ~~~~~~~~~~~~~~~~~~~~~~
+############################
+
+# Box Plot 
+##########
+bmi1 <- qualifying_studies %>%   
+  # Set Up   
+  # ------   
+  filter(!is.na(BMI)) %>%   
+  # Plotting   
+  # --------   
+  ggplot(aes(x=disease_class, y=BMI)) +    
+  geom_boxplot(outlier.shape = NA) +   
+  geom_jitter(alpha = 0.15, width = 0.15) +   
+  stat_summary(fun = mean, geom = "point", shape = 20, size = 5, color = "red") +
+  # Labeling   
+  #--------- 
+  labs(
+    title = "Distribution of BMI by CRC Progression Classifier", 
+    x = "CRC Progression Classifiers", 
+    y = "BMI"
+  ) +
+  theme(plot.title = element_text(size = 12))
+    
+
+# Scatterplot by CRC Progression 
+################################
+bmi2 <- qualifying_studies %>% 
+  # Set Up   
+  # ------   
+  filter (!is.na(age), !is.na(BMI)) %>% 
+  # Plotting   
+  # --------   
+  ggplot(aes(x=age, y=BMI)) +    
+  geom_point(aes(color = disease_class, alpha = 0.7)) + 
+  geom_smooth(method = "lm", se = TRUE, formula = y ~ x, color = "grey40") +
+  scale_color_manual(values = progression_colors, 
+                     name = "CRC Progression Classifiers") +
+  facet_wrap(~disease_class) +
+  # Labeling   
+  #---------  
+  labs(
+    title = "Age by BMI, Colored by CRC Progression Classifier", 
+    x = "Age", 
+    y = "BMI"
+  ) +
+  theme(plot.title = element_text(size = 12), 
+        legend.position = "none")
+
+# Display
+#########
+layout2 <- c( # t, l , b = t, r = l
+  area(1, 1, 2, 3), 
+  area(1, 4, 2, 6)
+)
+
+#plot(layout2)
+
+BMI_caption <- str_wrap(
+  "(A) Box plot of BMI by CRC progression classifier. The red dot marks the mean, while the black line marks the median. All classifiers generally have a normal distribution.
+   (B) Scatter plots of age by BMI, with a linear model regression line of y ~ x, faceted by CRC progression classifier. Notice that there is minimally notable clustering.", 
+  width = 200
+)
+
+bmi1 + bmi2 +
+  plot_layout(design = layout2) +
+  plot_annotation(
+    title = "Figure 3: BMI Associations with CRC Progression Classifiers",
+    tag_levels = "A",
+    caption = BMI_caption
+  ) &
+  theme(
+        plot.title = element_text(hjust = 0, size = 14),
+        plot.caption = element_text(hjust = 0, size = 12), 
+        legend.key.size = unit(0.5, "cm"), 
+        legend.title = element_text(size = 10), 
+        legend.direction = "horizontal"
+  )
+```
+
+#### Taxonomic & Pathway Analysis
+
+The combined filtered data sets from cMD3 contain over 1000 taxa. To identify any trends in the data, we looked at beta-diversity, which is a test for dissimilarity between the study conditions. Although the p-value was highly significant (P = 0.001), the R-squared value (R\^2 = 0.0078) indicates much of the dissimilarity is not explained by the study conditions.
 
 ```{r}
+#| label: PCoA Plot
 #| echo: false
 #| warning: false
 #| message: false
@@ -542,6 +516,7 @@ data %>%
 To understand how the taxa are distributed across the different study conditions, two relative abundance plots were generated at the family and genus level.
 
 ```{r}
+#| label: Taxon by Condition, Genus and Family
 #| echo: false
 #| warning: false
 #| message: false
@@ -669,9 +644,10 @@ figure_2_caption <- str_wrap(
 p2 + p1 + plot_layout(ncol = 2)  # Side by side
 ```
 
-The Relative abundance stacked barplots also indicate there was very little difference at the family and genus taxonomic levels. Considering these datasets cover several countries and age categories, it is possible that further separation into more groups may provide better comparisons. As Japan and the United States contain the greatest number of participants, these countries were separated out. Then, for the same reason, we compared only the control and CRC groups, since these health conditions also have the highest sample sizes. To identify key differences in how taxa may be enriched between groups, differential abundance was looked at using LEfSe analysis. Using a reference and a treatment, LEfSe performs Kruskal-Wallis test to identify taxa that were statistically different from zero between the control and CRC groups. Taxa found to be statistically significant were run with a Wilconox Rank-Sum Test to perform pairwise comparisons. Finally, the effect size is calculated using linear distriminant analysis (LDA).
+The relative abundance stacked bar plots also indicate there was very little difference at the family and genus taxonomic levels. Considering these data sets cover several countries and age categories, it is possible that further separation into more groups may provide better comparisons. As Japan and the United States contain the greatest number of participants, these countries were separated out. Then, for the same reason, we compared only the control and CRC groups, since these health conditions also have the highest sample sizes. To identify key differences in how taxa may be enriched between groups, differential abundance was looked at using LEfSe analysis. Using a reference and a treatment, LEfSe performs Kruskal-Wallis test to identify taxa that were statistically different from zero between the control and CRC groups. Taxa found to be statistically significant were run with a Wilconox Rank-Sum Test to perform pairwise comparisons. Finally, the effect size is calculated using linear distriminant analysis (LDA).
 
 ```{r}
+#| label: Taxon by Country
 #| echo: false
 #| warning: false
 #| message: false
@@ -722,7 +698,6 @@ p2b <- lefser(
 ) %>%
   lefserPlot() +
   labs(title = "United States = CRC vs Control")
-)
 
 # Save lefser results before plotting
 res_JPN <- lefser(
