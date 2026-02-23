@@ -381,19 +381,28 @@ permanova_result <- adonis2(dist_matrix ~ study_condition,
 r_squared <- permanova_result$R2[1]
 p_value <- permanova_result$`Pr(>F)`[1]
 
+PCoA_caption <- str_wrap(
+  "Principle Coordinate Analysis illustrating Bray-Curtis dissimilarity of metagenomic data from cMD3 study. Comparisons were made between study conditions and age groups.  ", 
+  width = 200
+)
+
+
 data %>% 
-  agglomerateByRanks() %>%
-  runMDS(FUN = vegdist, method = "bray", exprs_values = "relative_abundance", altexp = "genus", name = "BrayCurtis") %>%
-  plotReducedDim("BrayCurtis", colour_by = "study_condition", shape_by = "age_decade") +
-  labs(x = "PCo 1", y = "PCo 2",
-       subtitle = glue::glue("PERMANOVA: R² = {round(r_squared, 4)}, p = {round(p_value, 4)}")) +
-  guides(colour = guide_legend(title = "Study Condition"), shape = guide_legend(title = "Age (by decade)")) +
-  theme(legend.position = c(0.01, 0.28),
-        axis.text = element_text(size = 12),
-        axis.title = element_text(size = 14),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 13),
-        plot.subtitle = element_text(size = 12))
+  agglomerateByRanks() %>% 
+  runMDS(FUN = vegdist, method = "bray", exprs_values = "relative_abundance", altexp = "genus", name = "BrayCurtis") %>% 
+  plotReducedDim("BrayCurtis", colour_by = "study_condition", shape_by = "age_decade") + 
+  labs(x = "PCo 1", y = "PCo 2", subtitle = glue::glue("PERMANOVA: R² = {round(r_squared, 4)}, p = {round(p_value, 4)}"),
+       caption = PCoA_caption) + 
+  guides(colour = guide_legend(title = "Study Condition"), shape = guide_legend(title = "Age (by decade)")) + 
+  plot_annotation(title = "Figure 3: Beta Diversity of Samples by Age and Study Condition") +
+  theme(legend.position = c(0.01, 0.28), 
+        axis.text = element_text(size = 12), 
+        axis.title = element_text(size = 14), 
+        legend.text = element_text(size = 12), 
+        legend.title = element_text(size = 13), 
+        plot.subtitle = element_text(size = 12),
+        plot.caption = element_text(hjust = 0))
+
 
 ```
 
@@ -518,14 +527,22 @@ p2 <- abund_normalized %>%
   ggtitle("Gut microbiota by condition (Family level)") +
   theme_minimal()
 
-figure_2_caption <- str_wrap(
-  "(A) Study condition
-   (B) Histogram demonstrating a bimodal age distribution with a secondary peak near 25 years and a primary peak near 60 years.",
-  width = 120
+
+
+figure_4_caption <- str_wrap(
+  "Stacked bar plots of cMD3 metagenomic data based on study conditions of filtered studies (A) Family taxonomic level
+   (B) Genus taxonomic level.", 
+  width = 200
 )
 
+p2 + p1 +
+  plot_annotation(
+    title = "Figure 4: Relative Abundance of cMD3 Study Metagenomic Data at Family and Genus taxonomic levels",
+    caption = figure_4_caption,
+    tag_levels = "A"
+  ) +
+  theme(plot.caption = element_text(hjust = 0))
 
-p2 + p1 + plot_layout(ncol = 2)  # Side by side
 ```
 
 The relative abundance stacked bar plots also indicate there was very little difference at the family and genus taxonomic levels. Considering these data sets cover several countries and age categories, it is possible that further separation into more groups may provide better comparisons. As Japan and the United States contain the greatest number of participants, these countries were separated out. Then, for the same reason, we compared only the control and CRC groups, since these health conditions also have the highest sample sizes. To identify key differences in how taxa may be enriched between groups, differential abundance was looked at using LEfSe analysis. Using a reference and a treatment, LEfSe performs Kruskal-Wallis test to identify taxa that were statistically different from zero between the control and CRC groups. Taxa found to be statistically significant were run with a Wilconox Rank-Sum Test to perform pairwise comparisons. Finally, the effect size is calculated using linear distriminant analysis (LDA).
@@ -559,7 +576,7 @@ p1b <- lefser(
   checkAbundances = TRUE
 ) %>%
   lefserPlot() +
-  labs(title = "Japan - CRC vs Control", subtitle = "LEfSe Analysis")
+  labs(title = "Japan - CRC vs Control")
 
 #Filter data for United States
 data_USA <- data[, data$country == "USA"]
@@ -581,7 +598,7 @@ p2b <- lefser(
   checkAbundances = TRUE
 ) %>%
   lefserPlot() +
-  labs(title = "United States = CRC vs Control")
+  labs(title = "United States - CRC vs Control")
 
 # Save lefser results before plotting
 res_JPN <- lefser(
@@ -607,9 +624,24 @@ crc_USA <- res_USA[res_USA$scores > 0, "features"]
 p1b + p2b
 
 # Find common taxa
-intersect(crc_JPN, crc_USA)
+#intersect(crc_JPN, crc_USA)
 
-bugsInCommon <- intersect(crc_JPN, crc_USA)
+#bugsInCommon <- intersect(crc_JPN, crc_USA)
+
+figure_5_caption <- str_wrap(
+  "Differential abundance of cMD3 Study metagenomic data using LDA Effect Size (LEfSe) comparing healthy controls and subjects with colorectal cancer (CRC) in (A) Japan
+  and the (B) United States.", 
+  width = 200
+)
+
+p1b + p2b +
+  plot_annotation(
+    title = "Figure 5: Differential Abundance of cMD3 Study Metagenomic Data at Genus taxonomic level for Japan and the United States",
+    caption = figure_5_caption,
+    tag_levels = "A"
+  ) +
+  theme(plot.caption = element_text(hjust = 0))
+
 
 ```
 
