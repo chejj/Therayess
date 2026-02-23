@@ -1,5 +1,6 @@
 ---
-title: "Metagenomic EDA of Fecal Samples - Appendix"
+title: "Exploratory Data Analysis - Appendix"
+subtitle: "Metagenomic Analysis of Fecal Samples as a Differential Diagnostic Tool for Colorectal Cancer"
 
 author: 
   - name: Kaitlyn Schisler
@@ -392,6 +393,122 @@ diet2 <- qualifying_studies %>%
   theme(legend.position = "bottom")
 ```
 
+### 2-E: Country Distribution and Proportions
+
+```{r}
+#| label: Countries Associations
+#| fig-width: 14
+#| fig-height: 6
+#| fig-dpi: 500
+# ---
+
+# Countries ~~~~~~~~~~~~~~~~
+############################
+
+# Country Count
+###############
+country1 <- qualifying_studies  %>% 
+  # Set Up
+  # ------
+  filter(!is.na(country)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = reorder(country, country, 
+                         FUN = function(x) -length(x)))) + 
+  geom_bar() +
+  # Labeling
+  #---------
+  geom_text(stat = "count", aes(label = after_stat(count)), 
+            vjust = -0.21, size = 3, color = "black") +
+  labs(
+    title = "Country Sample Count Distribution", 
+    x = "Country (NATO country code, trigram)", 
+    y = "Count") +
+  theme( 
+        legend.position = "none", 
+        plot.title = element_text(size = 12))
+
+# Country Fill
+##############
+country2 <- qualifying_studies  %>% 
+  # Set Up
+  # ------
+  filter(!is.na(country)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = reorder(country, country, 
+                         FUN = function(x) -length(x)), 
+             fill=disease_class)) + 
+  geom_bar() +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression Classifiers") +
+  # Labeling
+  #---------
+  labs(title = "Country Sample Count Distribution",
+       subtitle = "with CRC Progression Classifiers",
+       x = "Country (NATO country code, trigram)", 
+       y = "Count") +
+  theme( 
+        legend.position = "none", 
+        plot.title = element_text(size = 12))
+
+# Countries Proportions
+#######################
+country3 <- qualifying_studies %>% 
+  # Set Up
+  # ------
+  filter(!is.na(country)) %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = reorder(country, country, 
+                         FUN = function(x) -length(x)), fill = disease_class)) + 
+  geom_bar(position = "fill") +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression Classifiers") +
+  # Labeling
+  #---------
+  labs(
+    title = "Proportion of CRC Progression Per Country", 
+    x = "Country (NATO country code, trigram)", 
+    y = "Proportion") +
+  theme( 
+        plot.title = element_text(size = 12))
+
+
+# Display
+#########
+layout3 <- c( # t, l , b = t, r = l
+  area(1, 1, 2, 2),
+  area(1, 3, 2, 4),
+  area(1, 5, 2, 6)
+)
+
+#plot(layout3)
+
+geography_caption <- str_wrap(
+  "(A) Bar plot of country sample count, sorted in descending order. 
+   (B) Stacked bar plot of country sample count, sorted in descending order, filled with CRC progression classifiers.
+   (C) Stacked bar plot of the CRC progression classifier proportion for each country in the multi-cohort study.", 
+  width = 200
+)
+
+country1 + country2 + country3 + 
+  plot_layout(design = layout3, guides = "collect", heights = c(1, 0.18)) +
+  plot_annotation(
+    title = "Figure 2: Country Associations with CRC Progression Classifiers",
+    tag_levels = "A",
+    caption = geography_caption
+  ) &
+  theme(
+        plot.title = element_text(hjust = 0, size = 14),
+        plot.caption = element_text(hjust = 0, size = 11), 
+        legend.key.size = unit(0.5, "cm"),
+        legend.title = element_text(size = 10), 
+        legend.direction = "vertical", 
+        legend.position = "right"
+  )
+```
+
 ## Appendix 3 - Statistical Analyses
 
 ### 3-A: Gender Binomial Test
@@ -467,7 +584,6 @@ A script used to install BiocManager and the cMD3 package for the first time.
 ```{r}
 #| label: Installing cMD3
 #| eval: false
-#| include: false
 
 if (!require("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
@@ -482,7 +598,6 @@ A script used to determine what information was available on our qualifying stud
 ```{r}
 #| label: Dry Runs
 #| eval: false
-#| include: false
 
 # Run Qualifying Studies List
 source("./EDA/Qualifying_Studies_List.R")
@@ -517,7 +632,6 @@ The R chunk at the beginning of the file to allow for rendering of all plots and
 ```{r}
 #| label: Setup for EDA Document
 #| eval: false
-#| include: false
 source("Qualifying_Studies_List.R")
 suppressPackageStartupMessages({
   library(tidyverse)
@@ -564,5 +678,9 @@ qualifying_studies <- qualifying_studies %>%
 ```
 
 ## Appendix 5 - Relevant Links
+
+### 5-A: Project GitHub
+
+### 5-B: cMD3 DataSet
 
 ## Appendix 6 - Bibliography
