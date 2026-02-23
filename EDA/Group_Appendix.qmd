@@ -63,16 +63,6 @@ qualifying_studies <- qualifying_studies %>%
   )
 ```
 
-## Table of Contents
-
-1.  Relevant Links
-
-    1.  Project GitHub
-
-    2.  cMD3 Dataset
-
-2.  Bibliography [***(here or at the end of our document?)***]{.underline}
-
 ## Appendix 1 - Summary Tables
 
 ### 1-A: Age Summary Statistics
@@ -495,7 +485,6 @@ geography_caption <- str_wrap(
 country1 + country2 + country3 + 
   plot_layout(design = layout3, guides = "collect", heights = c(1, 0.18)) +
   plot_annotation(
-    title = "Figure 2: Country Associations with CRC Progression Classifiers",
     tag_levels = "A",
     caption = geography_caption
   ) &
@@ -506,6 +495,76 @@ country1 + country2 + country3 +
         legend.title = element_text(size = 10), 
         legend.direction = "vertical", 
         legend.position = "right"
+  )
+```
+
+### 2-F: Contributors and CRC Progression Classifier Counts
+
+```{r}
+#| label: Contributors and CRC Progression Classifier Counts
+# Bar Chart
+###########
+contributor1 <- qualifying_studies %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = reorder(study_name, study_name, 
+                         FUN = function(x) -length(x)),
+                         fill = disease_class)) +
+  geom_bar() +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nClassifiers") +
+  theme(axis.text.x = element_text(
+    angle = 20, hjust = 1, lineheight = 1.1, size = 5), 
+    plot.title = element_text(size = 10), 
+    axis.title.x = element_text(size = 10)) +
+  # Labeling
+  #---------
+  xlab("Author Last Name, First Initial, and Year") +
+  ylab("Sample Count") +
+  ggtitle("Qualifying Study Sample Count \nby CRC Progression Class")
+
+# Bar Chart by Study
+####################
+contributor2 <- qualifying_studies %>%
+  # Plotting
+  # --------
+  ggplot(aes(x = reorder(study_name, study_name, 
+                         FUN = function(x) -length(x)),
+                         fill = disease_class)) +
+  geom_bar(position = "fill") +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nClassifiers") +
+  theme(axis.text.x = element_text(
+    angle = 20, hjust = 1, lineheight = 1.1, size = 5), 
+    plot.title = element_text(size = 10), 
+    axis.title.x = element_text(size = 10)) +
+  # Labeling
+  #---------
+  xlab("Author Last Name, First Initial, and Year") +
+  ylab("Proportion") +
+  ggtitle("Qualifying Study Sample Proportions \nby CRC Progression Class")
+
+# Bar Chart of Total CRC Progression Class Proportions
+#########################################################
+class_count <- qualifying_studies %>%
+  # Plotting
+  # --------
+  ggplot(aes(x=disease_class, stat = "count", fill = disease_class)) +
+  geom_bar() +
+  scale_fill_manual(values = progression_colors, 
+                    name = "CRC Progression \nClassifiers") +
+  theme(axis.text.x = element_text(
+    angle = 20, hjust = 1, lineheight = 1.1, size = 8), 
+    plot.title = element_text(size = 10))+
+  # Labeling
+  #---------
+  labs(y = "Sample Count", x = "CRC Progression Classes") +
+  ggtitle("Counts of CRC Progression Classes in Study")
+
+class_count + (contributor1 / contributor2)  + plot_layout(guides = "collect") &
+  theme( 
+        legend.key.size = unit(0.4, "cm"), 
+        legend.title = element_text(size = 12)
   )
 ```
 
@@ -681,6 +740,25 @@ qualifying_studies <- qualifying_studies %>%
 
 ### 5-A: Project GitHub
 
-### 5-B: cMD3 DataSet
+Link to our project GitHub Repository: <https://github.com/chejj/Therayess>
 
-## Appendix 6 - Bibliography
+### 5-B: cMD3 Data Set
+
+Link to the cMD3 data set Bioconductor Page: <https://bioconductor.org/packages/3.16/data/experiment/html/curatedMetagenomicData.html>
+
+## Appendix 6 - Packages
+
+```{r}
+citation("tidyverse")
+citation("knitr")
+citation("kableExtra")
+citation("patchwork")  
+
+citation("vegan")
+citation("mia")
+citation("scater")
+citation("lefser")
+
+citation("grid")
+citation("gridExtra")
+```
