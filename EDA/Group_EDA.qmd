@@ -134,23 +134,15 @@ qualifying_studies <- qualifying_studies %>%
 
 ##### Diagnostic Categories
 
-+----------------------------------+-------------------------------------------------------------------------+
-| Abbreviation                     | Description                                                             |
-+==================================+=========================================================================+
-| HC                               | Healthy control                                                         |
-+----------------------------------+-------------------------------------------------------------------------+
-| PA                               | Polyp / adenoma                                                         |
-+----------------------------------+-------------------------------------------------------------------------+
-| PA+                              | Polyp / adenoma with comorbidities                                      |
-+----------------------------------+-------------------------------------------------------------------------+
-| CRC                              | Colorectal cancer                                                       |
-+----------------------------------+-------------------------------------------------------------------------+
-| CRC-H                            | History of colorectal cancer with resection                             |
-+----------------------------------+-------------------------------------------------------------------------+
-| CRC+                             | Colorectal cancer with comorbidities                                    |
-+----------------------------------+-------------------------------------------------------------------------+
-| Other                            | Any diagnosed disease without current or history of CRC-related growths |
-+----------------------------------+-------------------------------------------------------------------------+
+| Abbreviation | Description |
+|------------------------|------------------------------------------------|
+| HC | Healthy control |
+| PA | Polyp / adenoma |
+| PA+ | Polyp / adenoma with comorbidities |
+| CRC | Colorectal cancer |
+| CRC-H | History of colorectal cancer with resection |
+| CRC+ | Colorectal cancer with comorbidities |
+| Other | Any diagnosed disease without current or history of CRC-related growths |
 
 ### Exploratory Data Analysis
 
@@ -747,6 +739,9 @@ A rather major limitation is the incomplete availability of clinically and biolo
 
 ```{r, echo=FALSE}
 
+#| fig-width: 30
+#| fig-height: 35
+#| fig-dpi: 500
 #| label: Metadata heat map 
 
 
@@ -794,7 +789,7 @@ meta_completeness <- meta_completeness %>%
   arrange(completeness) %>%
   mutate(variable = factor(variable, levels = variable))
 
-ggplot(meta_completeness,
+g1 <- ggplot(meta_completeness,
        aes(x = "", y = variable, fill = completeness)) +
   geom_tile(color = "white") +
   scale_fill_gradient(
@@ -804,19 +799,82 @@ ggplot(meta_completeness,
     name = "% samples\nwith data"
   ) +
   labs(
-    title = str_wrap("Metadata Completeness in CRC Related Metagenomic Samples"),
-    subtitle = str_wrap("Percent of samples with non-missing values per variable"),
+    title = "Metadata completeness",
+    subtitle = "Percent of samples with non-missing values",
     x = NULL,
     y = NULL
   ) +
   theme_bw() +
   theme(
+    axis.text.y = element_text(size = 7, lineheight = 2),
     axis.text.x = element_blank(),
     axis.ticks.x = element_blank(),
+    scale_y_discrete(expand = expansion(mult = c(0.02, 0.02))),
     #center justify titles
-    plot.title = element_text(face = "bold", size = 12, hjust=0.5),
-    plot.subtitle = element_text(size = 10, hjust=0.5)
+    plot.title = element_text(face = "bold", size = 10, hjust=0.5),
+    plot.subtitle = element_text(size = 9, hjust=0.5),
   )
+
+
+#create ggplot of studies selected and sequencing platform and extraction kit used
+#summary table with counts per study X
+study_tech_summary <- qualifying_studies %>%
+  filter(
+    !is.na(sequencing_platform),
+    !is.na(DNA_extraction_kit)
+  ) %>%
+  count(study_name, sequencing_platform, DNA_extraction_kit)
+    #sanity check lol
+#head(study_tech_summary)
+#create ggplot
+g2 <- ggplot(
+  study_tech_summary,
+  aes(
+    y = study_name,
+    x = n,
+    fill = DNA_extraction_kit
+  )
+) +
+  geom_col() +
+  facet_wrap(~ sequencing_platform, scales = "free_y") +
+  theme_bw() +
+  labs(
+    title = str_wrap("Sequencing Platforms and DNA Extraction Kits Across CRC-Relevant Studies", width = 30),
+    x = "Number of samples",
+    y = "Study name",
+    fill = "DNA extraction kit"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme(
+    # Centers the main title
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    legend.position = "bottom",
+    legend.text = element_text(size = 6),
+    panel.spacing.x = unit(0.4, "lines"),
+    plot.margin = margin(t = 20, r = 20, b = 10, l = 10),
+    axis.text.y = element_text(size = 6),      # study names
+    strip.text  = element_text(size = 7),      # facet labels
+    axis.title.x = element_text(size = 8),
+    scale_y_discrete(expand = expansion(mult = c(0.02, 0.02)))
+  )
+
+
+g2 + g1 +
+  plot_layout(
+    ncol = 2,
+    widths = c(4, 1),
+  ) + plot_annotation(
+    title = "Figure 6: Study variations and Data limitations",
+    tag_levels = "A",
+  ) &
+  theme (
+    plot.title = element_text(size = 10)
+  )
+    
+  # Side by side
+
+
+
 ```
 
 While this study focuses on CRC metagenomic analysis/”fingerprinting”, the available data has either empty or missing columns for things like tumor stage, location, and metastasis. Original plans had the separation of CRC patients with and without metastasis which is currently not feasible until more complete data is available. This will result in a computational framework that can only compare broad disease categories rather than detailed cancer stages. 
