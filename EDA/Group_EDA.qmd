@@ -87,7 +87,7 @@ Our Exploratory Data Analysis provides the foundation for understanding the cMD3
 
 ### Exploratory Data Analysis
 
-#### Data Availability 
+#### Data Availability
 
 Table 1 summarizes the data available across the CRC-relevant studies included in this analysis after filtering. Each study contains between 59 and 616 samples, with the largest cohort being YachidaS_2019 and the smallest being ThomasAM_2018b. The studies span multiple geographic regions across Asia, Europe and North America, providing a diverse representation of populations relevant to colorectal cancer research.
 
