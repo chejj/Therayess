@@ -1,12 +1,18 @@
 ################################################################################
 ## ---- 1) Load packages
 suppressPackageStartupMessages({
-  library(BiocManager)
-  library(curatedMetagenomicData)
-  library(dplyr)
-  library(stringr)
+  library(tidyverse)
   library(knitr)
   library(kableExtra)
+  library(patchwork)
+  
+  library(vegan)
+  library(mia)
+  library(scater)
+  library(lefser)
+  
+  library(grid)
+  library(gridExtra)
 })
 #View(sampleMetadata)
 #str(sampleMetadata)
