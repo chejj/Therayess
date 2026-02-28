@@ -3,19 +3,10 @@
 suppressPackageStartupMessages({
   library(BiocManager)
   library(curatedMetagenomicData)
-  
-  library(tidyverse)
+  library(dplyr)
+  library(stringr)
   library(knitr)
   library(kableExtra)
-  library(patchwork)
-    
-  library(vegan)
-  library(mia)
-  library(scater)
-  library(lefser)
-    
-  library(grid)
-  library(gridExtra)
 })
 #View(sampleMetadata)
 #str(sampleMetadata)
