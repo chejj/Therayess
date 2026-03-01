@@ -32,7 +32,15 @@ sampleMetadata <- sampleMetadata %>%
       age > 69 & age < 80 ~ "70-79",
       age > 79  ~ "80+"
     )
-  ) 
+  ) %>% 
+  mutate(
+    age_decade = factor(
+      age_decade,
+      levels = c("0-9", "10-19", "20-29", "30-39", "40-49", "50-59",
+                 "60-69", "70-79", "80+"),
+      ordered = TRUE
+    )
+  )
 ################################################################################
 qualifying_studies <- sampleMetadata %>%
   filter(body_site == "stool", age >= 18, !is.na(disease)) %>%
@@ -66,20 +74,21 @@ qualifying_studies <- sampleMetadata %>%
         "PA-M",
         "CRC",
         "CRC+",
-        "CRC-H",
-        "CRC-M"
+        "CRC-M",
+        "CRC-H"
       )
     )
   ) %>% 
   mutate(
     age_decade = if_else(age_decade == "10-19" | age_decade == "20-29", "18-29", age_decade)
   ) %>% 
-  select(
-    study_name, sample_id, subject_id, antibiotics_current_use,
-    age, age_category, age_decade, gender, BMI, smoker, ever_smoker, alcohol, alcohol_numeric, diet, country, location, population,
-    study_condition, disease, disease_class, disease_subtype, disease_stage, disease_location, days_from_first_collection, days_after_onset,
-    sequencing_platform, DNA_extraction_kit, 
-    cholesterol, wbc, rbc, stool_texture)
+  mutate(
+    age_decade = factor(
+      age_decade,
+      levels = c("18-29","30-39","40-49","50-59","60-69","70-79","80+"),
+      ordered = TRUE
+    )
+  )
 #View(qualifying_studies)
 #cat("\n=== Qualifying Studies ===\n")
 #cat("Qualifying Studies samples (all):", nrow(qualifying_studies), "\n")

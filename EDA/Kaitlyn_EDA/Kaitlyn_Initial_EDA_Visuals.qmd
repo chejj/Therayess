@@ -11,40 +11,14 @@ grid:
 ```{r}
 #| label: Setup
 # ---
-source("../Qualifying_Studies_List.R")  
+source("../Qualifying_Studies_List.R")
+source("../project_settings.R")
+
 suppressPackageStartupMessages({
   library(ggplot2)
   library(knitr)
   library(patchwork)
 })
-
-progression_order <- c(
-  "Other", 
-  "HC",
-  "PA",
-  "PA+",
-  "PA-M",
-  "CRC",
-  "CRC+",
-  "CRC-H",
-  "CRC-M"
-)
-
-progression_colors <- c(
-  "HC" = "#539deb",
-  "PA" = "#e4e85b",
-  "PA+" = "#e8a25b",
-  "CRC" = "#cf1919",
-  "CRC+" = "#8f0000",
-  "CRC-M" = "#4d0404",
-  "CRC-H" = "#520f76",
-  "Other" = "#aaa3a3"
-)
-
-qualifying_studies <- qualifying_studies %>% 
-  mutate(
-    disease_class = factor(disease_class, levels = progression_order)
-  )
 ```
 
 # Ideas of Interest:
@@ -65,7 +39,7 @@ contributor1 <- qualifying_studies %>%
                          fill = disease_class)) +
   geom_bar() +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nClassifiers") +
+                    name = progression_legend_title) +
   theme(axis.text.x = element_text(angle = 20, hjust = 1, lineheight = 1.1)) +
   # Labeling
   #---------
@@ -83,7 +57,7 @@ contributor2 <- qualifying_studies %>%
                          fill = disease_class)) +
   geom_bar(position = "fill") +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nClassifiers") +
+                    name = progression_legend_title) +
   theme(axis.text.x = element_text(angle = 20, hjust = 1, lineheight = 1.1)) +
   # Labeling
   #---------
@@ -110,7 +84,7 @@ qualifying_studies %>%
   ggplot(aes(x=disease_class, stat = "count", fill = disease_class)) +
   geom_bar() +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nClassifiers") +
+                    name = progression_legend_title) +
   # Labeling
   #---------
   labs(y = "Sample Count", x = "CRC Progression Classes") +
@@ -211,7 +185,7 @@ decade2 <- qualifying_studies %>%
   ggplot(aes(x=age_decade, fill = disease_class)) + 
   geom_bar() + 
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nClassifiers") + 
+                    name = progression_legend_title) + 
   # Labeling 
   #--------- 
   theme(axis.text.x = element_text(angle = 30, hjust = 1, lineheight = 1.1),
@@ -235,7 +209,7 @@ decade3 <- qualifying_studies %>%
   ggplot(aes(x=age_decade, fill = disease_class)) +
   geom_bar(position="fill") +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nClassifiers") +
+                    name = progression_legend_title) +
   # Labeling
   #---------
   ggtitle("Proportion of CRC Progression by Age Decade") + 
@@ -261,7 +235,7 @@ qualifying_studies %>%
   ggplot(aes(x=gender, fill=disease_class)) +
   geom_bar(position = "fill") +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nClassifiers") +
+                    name = progression_legend_title) +
   # Labeling
   #---------
   ggtitle("Proportions of CRC Progression Classifier by Gender") +
@@ -279,7 +253,7 @@ qualifying_studies %>%
   ggplot(aes(x = age_decade, fill = disease_class)) + 
   geom_bar() +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nClassifiers") +
+                    name = progression_legend_title) +
   facet_wrap(~gender) +
   # Labeling
   #---------
@@ -298,7 +272,7 @@ qualifying_studies %>%
   ggplot(aes(x = age_decade, fill = disease_class)) + 
   geom_bar(position = "fill") +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nClassifiers") +
+                    name = progression_legend_title) +
   facet_wrap(~gender) +
   # Labeling
   #---------
@@ -411,7 +385,7 @@ country2 <- qualifying_studies  %>%
              fill=disease_class)) + 
   geom_bar() +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nClassifiers") +
+                    name = progression_legend_title) +
   # Labeling
   #---------
   theme(axis.text.x = element_text(angle = 30, hjust = 0.9, lineheight = 1.1),
@@ -434,7 +408,7 @@ qualifying_studies %>%
                          FUN = function(x) -length(x)), fill = disease_class)) + 
   geom_bar(position = "fill") +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nClassifiers") +
+                    name = progression_legend_title) +
   # Labeling
   #---------
   ggtitle("Proportion of CRC Progression Per Country") +
@@ -481,7 +455,7 @@ city2 <- qualifying_studies  %>%
              fill=disease_class)) + 
   geom_bar() +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nClassifiers") +
+                    name = progression_legend_title) +
   # Labeling
   #---------
   theme(axis.text.x = element_text(angle = 30, hjust = 0.9, lineheight = 1.1),
@@ -504,7 +478,7 @@ qualifying_studies  %>%
                          FUN = function(x) -length(x)), fill = disease_class)) + 
   geom_bar(position = "fill") +
   scale_fill_manual(values = progression_colors, 
-                    name = "CRC Progression \nClassifiers") +
+                    name = progression_legend_title) +
   # Labeling
   #---------
   ggtitle("Proportion of CRC Progression Class Per Location (City)") +
@@ -529,7 +503,7 @@ qualifying_studies %>%
   ggplot(aes(x = reorder(diet, diet, 
                          FUN = function(x) -length(x)))) + 
   geom_bar(aes(fill = disease_class)) +
-  scale_fill_manual(values = progression_colors, name = "CRC Progression \nClassifiers") +
+  scale_fill_manual(values = progression_colors, name = progression_legend_title) +
   # Labeling
   #---------
   geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.17, color = "black") +
@@ -547,7 +521,7 @@ qualifying_studies %>%
   ggplot(aes(x = reorder(diet, diet, 
                          FUN = function(x) -length(x)))) + 
   geom_bar(aes(fill = disease_class), position = "fill") +
-  scale_fill_manual(values = progression_colors, name = "CRC Progression \nClassifiers") +
+  scale_fill_manual(values = progression_colors, name = progression_legend_title) +
   # Labeling
   #---------
   ggtitle("Diet of Individuals") +
@@ -575,7 +549,7 @@ qualifying_studies %>%
   # Labeling   
   #---------   
   ggtitle("Distribution of BMI by CRC Progression Classifier") +   
-  ylab("BMI") +    xlab("CRC Progression \nClassifiers")  
+  ylab("BMI") +    xlab(progression_legend_title)  
 
 # BMI and Age Colored by CRC Progression 
 ########################################
@@ -588,7 +562,7 @@ qualifying_studies %>%
   ggplot(aes(x=age, y=BMI)) +    
   geom_point(aes(color = disease_class,)) + 
   geom_smooth(method = "lm", color = "grey40") +
-  scale_color_manual(values = progression_colors, name = "CRC Progression \nClassifiers") +
+  scale_color_manual(values = progression_colors, name = progression_legend_title) +
   facet_wrap(~disease_class, ) +
   # Labeling   
   #---------   
