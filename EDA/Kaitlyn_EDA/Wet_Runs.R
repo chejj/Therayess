@@ -73,6 +73,126 @@ for (i in seq_along(studies)) { #seq_along() in R generates an integer sequence 
   }
 }
 
+####################################
+# --- Add Extra Metadata Layers: ---
+# Do not run below if doing Dry Run
+####################################
+library(S4Vectors)
+library(stringr)
+
+add_age_decade <- function(x) { # create a function to add age decade
+  # If column already exists, do nothing
+  if ("age_decade" %in% colnames(colData(x))) {
+    return(x)
+  }
+  # If age column doesn't exist, do nothing
+  if (!"age" %in% colnames(colData(x))) {
+    return(x)
+  }
+  
+  cd <- as.data.frame(colData(x)) # convert to a dataframe
+  cd$age_decade <- ifelse( # create a new column and...
+    is.na(cd$age), 
+    NA_character_,
+    paste0(floor(cd$age / 10) * 10, "-", floor(cd$age / 10) * 10 + 9) 
+  ) # Example: 64 / 10 = 6.4 → floor(6.4) = 6 → 6 * 10 = 60, therefore paste0(60, "-", 69)
+  colData(x) <- S4Vectors::DataFrame(cd) # convert back to SV4 Dataframe
+  x #return object
+}
+
+add_disease_class <- function(x) {
+  # If column already exists, do nothing
+  if ("disease_class" %in% colnames(colData(x))) {
+    return(x)
+  }
+  # If disease column doesn't exist, do nothing
+  if (!"disease" %in% colnames(colData(x))) {
+    return(x)
+  }
+  
+  cd <- as.data.frame(colData(x))
+  
+  # normalize for matching
+  d <- str_to_lower(as.character(cd$disease))
+  
+  cd$disease_class <- dplyr::case_when(
+    is.na(d) ~ NA_character_,
+    
+    # Metastatic / history first (most specific)
+    str_detect(d, "\\bcrc\\b") & str_detect(d, "metasta") ~ "CRC-M",
+    str_detect(d, "history") ~ "CRC-H",
+    str_detect(d, "\\b(adenoma|polyp)\\b") & str_detect(d, "metasta") ~ "PA-M",
+    
+    # Exact / common labels
+    d == "healthy" ~ "HC",
+    d %in% c("adenoma", "few_polyps") ~ "PA",
+    d == "crc" ~ "CRC",
+    
+    # Broader catch-alls
+    str_detect(d, "\\b(adenoma|polyp)\\b") ~ "PA+",
+    str_detect(d, "\\bcrc\\b") ~ "CRC+",
+    
+    TRUE ~ "Other"
+  )
+  
+  cd$disease_class <- factor(
+    cd$disease_class,
+    levels = c(
+      "Other", 
+      "HC",
+      "PA",
+      "PA+",
+      "PA-M",
+      "CRC",
+      "CRC+",
+      "CRC-M",
+      "CRC-H"
+    )
+  )
+  
+  colData(x) <- S4Vectors::DataFrame(cd)
+  x
+}
+
+CRC_progression_studies <- lapply(CRC_progression_studies, function(st) {
+  st <- lapply(st, add_age_decade)
+  st
+}) # Apply Age_Decade to entire Tree Summarized Experiment
+
+CRC_progression_studies <- lapply(CRC_progression_studies, function(st) {
+  lapply(st, add_disease_class)
+}) # Apply Disease_Class to entire Tree Summarized Experiment
+
+
+################################################################################
+# --- Is everything that we need loaded in? ---
+focus <- c("relative_abundance", "pathway_abundance", "pathway_coverage")
+
+# which studies loaded?
+loaded_studies <- names(CRC_progression_studies)
+
+# which types exist per study?
+types_present <- lapply(CRC_progression_studies, names)
+
+# studies missing any type?
+missing_types <- lapply(types_present, function(x) setdiff(focus, x))
+missing_types <- missing_types[lengths(missing_types) > 0]
+missing_types # prints nothing / empty list → we have all types for all studies.
+
+library(SummarizedExperiment)
+
+dims <- lapply(CRC_progression_studies, function(st) {
+  sapply(focus, function(tp) {
+    x <- st[[tp]]
+    if (is.null(x)) return(c(NA, NA))
+    dim(assay(x))
+  })
+})
+dims[1:12] # Peek and look for no NA, no 0 rows/cols.
+
+x <- CRC_progression_studies[[1]][["relative_abundance"]]
+stopifnot(identical(colnames(x), rownames(colData(x)))) # pass means metadata can be added by sample ID
+
 ####################
 # Checks for Success
 ####################
