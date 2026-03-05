@@ -1,0 +1,490 @@
+
+```{r}
+################################################################################
+## CMD3 download + filter + save to D:/cmd3/
+## - Discovers available datasets for selected CMD3 data products
+## - DRY_RUN mode: no downloads, just manifest of what would be pulled
+## - Download mode: saves compressed .rds objects (no CSV)
+
+suppressPackageStartupMessages({
+  library(BiocManager)
+  library(curatedMetagenomicData)
+  library(MultiAssayExperiment)
+  library(SummarizedExperiment)
+  library(dplyr)
+  library(stringr)
+})
+
+## ---- SETTINGS ---------------------------------------------------------------
+out_dir <- "D:/cmd3"
+DRY_RUN <- FALSE         # TRUE = no downloads; FALSE = download + save
+RDS_COMPRESS <- "xz"     # "xz" smallest, "gzip" faster, "bzip2" in-between
+SAVE_ABUNDANCE_MATRIX <- TRUE  # also save assay matrix separately as .rds
+MAX_RETRIES <- 3         # retries per dataset download
+SKIP_EXISTING <- TRUE    # TRUE = resume by skipping datasets marked done
+DATA_PRODUCTS <- c(
+  "relative_abundance",
+  "marker_abundance",
+  "marker_presence",
+  "pathway_abundance",
+  "pathway_coverage",
+  "gene_families"
+)
+
+## Output folders
+dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+dir.create(file.path(out_dir, "rds"), showWarnings = FALSE, recursive = TRUE)
+manifest_path <- file.path(out_dir, "manifest.csv")
+
+## Load sample metadata
+if (!exists("sampleMetadata")) {
+  data("sampleMetadata", package = "curatedMetagenomicData", envir = environment())
+}
+stopifnot(exists("sampleMetadata"))
+
+## Add age decade bucket
+sampleMetadata <- sampleMetadata %>%
+  mutate(
+    age_decade = case_when(
+      is.na(age) ~ NA_character_,
+      age < 10 ~ "0-9",
+      age >= 10 & age < 20 ~ "10-19",
+      age >= 20 & age < 30 ~ "20-29",
+      age >= 30 & age < 40 ~ "30-39",
+      age >= 40 & age < 50 ~ "40-49",
+      age >= 50 & age < 60 ~ "50-59",
+      age >= 60 & age < 70 ~ "60-69",
+      age >= 70 & age < 80 ~ "70-79",
+      age >= 80 & age < 90 ~ "80-89",
+      age >= 90 ~ "90+"
+    )
+  )
+
+## Filter to qualifying studies & make disease_class -------------------
+qualifying_studies <- sampleMetadata %>%
+  filter(body_site == "stool", age >= 18, !is.na(disease)) %>%
+  group_by(study_name) %>%
+  filter(
+    any(
+      str_detect(str_to_lower(disease), "\\bcrc\\b") |
+        str_detect(str_to_lower(disease), "polyp|adenoma")
+    ) |
+      any(study_name == "HMP_2012")
+  ) %>%
+  ungroup() %>%
+  mutate(
+    disease_lc = str_to_lower(disease),
+    disease_class = case_when(
+      disease_lc == "healthy" ~ "HC",
+
+      # Polyp/Adenoma: specific first
+      str_detect(disease_lc, "\\b(adenoma|polyp)\\b") & str_detect(disease_lc, "metasta") ~ "PA-M",
+      disease_lc %in% c("adenoma", "few_polyps") ~ "PA",
+      str_detect(disease_lc, "\\b(adenoma|polyp)\\b") ~ "PA+",
+
+      # CRC: specific first
+      str_detect(disease_lc, "\\bcrc\\b") & str_detect(disease_lc, "metasta") ~ "CRC-M",
+      str_detect(disease_lc, "history") ~ "CRC-H",
+      disease_lc == "crc" ~ "CRC",
+      str_detect(disease_lc, "\\bcrc\\b") ~ "CRC+",
+
+      TRUE ~ "Other"
+    ),
+    disease_class = factor(
+      disease_class,
+      levels = c("Other", "HC", "PA", "PA+", "PA-M", "CRC", "CRC+", "CRC-H", "CRC-M")
+    ),
+    age_decade = if_else(age_decade %in% c("10-19", "20-29"), "18-29", age_decade)
+  ) %>%
+  select(
+    study_name, sample_id, subject_id, antibiotics_current_use,
+    age, age_category, age_decade, gender, BMI, smoker, ever_smoker, alcohol, alcohol_numeric, diet,
+    country, location, population,
+    study_condition, disease, disease_class, disease_subtype, disease_stage, disease_location,
+    days_from_first_collection, days_after_onset,
+    sequencing_platform, DNA_extraction_kit,
+    cholesterol, wbc, rbc, stool_texture
+  ) %>%
+  mutate(sample_id = as.character(sample_id))
+
+## Decide what diseases to keep
+wanted_classes <- c("Other", "HC", "PA", "PA+", "PA-M", "CRC", "CRC+", "CRC-H", "CRC-M")
+
+qualifying_studies <- qualifying_studies %>%
+  filter(disease_class %in% wanted_classes)
+
+## Discover which CMD3 datasets exist for those studies (robust)
+
+# Get available dataset titles for each selected product (no download)
+available_list <- lapply(DATA_PRODUCTS, function(p) {
+  out <- try(curatedMetagenomicData(p, dryrun = TRUE), silent = TRUE)
+  if (inherits(out, "try-error")) character(0) else as.character(out)
+})
+names(available_list) <- DATA_PRODUCTS
+available <- unique(unlist(available_list, use.names = FALSE))
+
+# Turn the dataset title string into a data.frame and extract study prefix
+# Typical CMD3 format is: "<release_date>.<StudyName>.<data_product>"
+avail_df <- tibble::tibble(dataset = available) %>%
+  mutate(
+    without_date = sub("^\\d{4}-\\d{2}-\\d{2}\\.", "", dataset),
+    study_prefix = sub("\\.[^.]+$", "", without_date), # study token after date
+    product      = sub("^.*\\.", "", dataset)          # product after last '.'
+  ) %>%
+  select(-without_date)
+
+qualifying_study_names <- unique(trimws(as.character(qualifying_studies[["study_name"]])))
+
+# Keep only datasets whose product contains "relative_abundance"
+# (this handles variants like "species_relative_abundance" too)
+# avail_df <- avail_df %>%
+#   filter(str_detect(product, "relative_abundance"))
+
+# Now match qualifying studies using the extracted study_prefix
+wanted_datasets <- avail_df %>%
+  filter(trimws(as.character(study_prefix)) %in% qualifying_study_names) %>%
+  pull(dataset) %>%
+  unique() %>%
+  sort()
+
+# Helpful debug output if still empty
+if (length(wanted_datasets) == 0) {
+  message("No datasets matched your study_name values.")
+  message("Requested products: ", paste(DATA_PRODUCTS, collapse = ", "))
+  message("Example qualifying study_name values:")
+  print(head(qualifying_study_names, 20))
+
+  message("\nExample available dataset titles:")
+  print(head(available, 50))
+
+  message("\nExample extracted study prefixes from available datasets:")
+  print(head(unique(avail_df$study_prefix), 50))
+
+  stop(
+    "No matching datasets were found for your qualifying studies.\n",
+    "Likely cause: study_name values don't match parsed dataset study tokens; see printed examples above."
+  )
+}
+
+## Helper: safe filename ----------------------------------------------
+safe_name <- function(x) {
+  x %>%
+    str_replace_all("[^A-Za-z0-9._-]+", "_") %>%
+    str_replace_all("_+", "_")
+}
+
+## Dry run (no downloads) OR download + save ---------------------------
+manifest <- list()
+if (file.exists(manifest_path)) {
+  old_manifest <- tryCatch(read.csv(manifest_path, stringsAsFactors = FALSE), error = function(e) NULL)
+  if (!is.null(old_manifest) && nrow(old_manifest) > 0) {
+    manifest <- lapply(seq_len(nrow(old_manifest)), function(i) old_manifest[i, , drop = FALSE])
+  }
+}
+
+record_manifest <- function(row_df) {
+  manifest[[length(manifest) + 1]] <<- row_df
+  write.csv(bind_rows(manifest), file = manifest_path, row.names = FALSE)
+}
+
+for (ds in wanted_datasets) {
+  dataset_start <- Sys.time()
+  base <- safe_name(ds)
+  done_flag <- file.path(out_dir, "rds", paste0(".done_", base, ".txt"))
+  ds_info <- avail_df %>% filter(dataset == ds) %>% slice(1)
+  study_prefix <- if (nrow(ds_info) == 1) ds_info$study_prefix else NA_character_
+  product <- if (nrow(ds_info) == 1) ds_info$product else NA_character_
+
+  if (!DRY_RUN && SKIP_EXISTING && file.exists(done_flag)) {
+    record_manifest(data.frame(
+      dataset = ds,
+      study_prefix = study_prefix,
+      product = product,
+      experiment = NA_character_,
+      assay_names = NA_character_,
+      status = "SKIPPED_DATASET_DONE",
+      n_samples_total = NA_integer_,
+      n_samples_kept = NA_integer_,
+      saved_se_rds = NA_character_,
+      saved_abund_rds = NA_character_,
+      saved_meta_rds = NA_character_,
+      se_bytes = NA_real_,
+      assays_bytes = NA_real_,
+      meta_bytes = NA_real_,
+      elapsed_sec = 0,
+      error = NA_character_,
+      stringsAsFactors = FALSE
+    ))
+    next
+  }
+
+  if (DRY_RUN) {
+    record_manifest(data.frame(
+      dataset = ds,
+      study_prefix = study_prefix,
+      product = product,
+      experiment = NA_character_,
+      assay_names = NA_character_,
+      status = "DRY_RUN_WOULD_DOWNLOAD",
+      n_samples_total = NA_integer_,
+      n_samples_kept = NA_integer_,
+      saved_se_rds = file.path(out_dir, "rds", paste0(base, "_filtered_SE.rds")),
+      saved_abund_rds = if (SAVE_ABUNDANCE_MATRIX)
+        file.path(out_dir, "rds", paste0("assays_", base, ".rds")) else NA_character_,
+      saved_meta_rds = file.path(out_dir, "rds", paste0("metadata_", base, ".rds")),
+      se_bytes = NA_real_,
+      assays_bytes = NA_real_,
+      meta_bytes = NA_real_,
+      elapsed_sec = as.numeric(difftime(Sys.time(), dataset_start, units = "secs")),
+      error = NA_character_,
+      stringsAsFactors = FALSE
+    ))
+    next
+  }
+
+  message("\n=== Downloading: ", ds, " ===")
+
+  ok <- FALSE
+  err <- NA_character_
+
+  mae <- NULL
+
+  ## Download with retry
+  for (attempt in seq_len(MAX_RETRIES)) {
+    tryCatch({
+      mae <- curatedMetagenomicData(ds, dryrun = FALSE)
+      ok <- TRUE
+      err <- NA_character_
+    }, error = function(e) {
+      ok <<- FALSE
+      err <<- conditionMessage(e)
+    })
+
+    if (ok) break
+    if (attempt < MAX_RETRIES) Sys.sleep(2)
+  }
+
+  if (!ok || is.null(mae)) {
+    record_manifest(data.frame(
+      dataset = ds,
+      study_prefix = study_prefix,
+      product = product,
+      experiment = NA_character_,
+      assay_names = NA_character_,
+      status = "FAILED_DOWNLOAD",
+      n_samples_total = NA_integer_,
+      n_samples_kept  = NA_integer_,
+      saved_se_rds = NA_character_,
+      saved_meta_rds = NA_character_,
+      saved_abund_rds = NA_character_,
+      se_bytes = NA_real_,
+      assays_bytes = NA_real_,
+      meta_bytes = NA_real_,
+      elapsed_sec = as.numeric(difftime(Sys.time(), dataset_start, units = "secs")),
+      error = err,
+      stringsAsFactors = FALSE
+    ))
+    next
+  }
+
+  # curatedMetagenomicData can return a MAE, a list of MAE, or a SE object.
+  mae_items <- if (inherits(mae, "MultiAssayExperiment")) {
+    list(mae)
+  } else if (is.list(mae)) {
+    mae
+  } else {
+    list(mae)
+  }
+
+  all_exps <- list()
+  all_exp_names <- character(0)
+
+  for (j in seq_along(mae_items)) {
+    obj <- mae_items[[j]]
+    obj_name <- names(mae_items)[j]
+    if (is.na(obj_name) || obj_name == "") {
+      obj_name <- paste0("obj", j)
+    }
+
+    if (inherits(obj, "MultiAssayExperiment")) {
+      obj_exps <- MultiAssayExperiment::experiments(obj)
+      obj_exp_names <- names(obj_exps)
+      if (is.null(obj_exp_names) || any(obj_exp_names == "")) {
+        obj_exp_names <- paste0("exp", seq_along(obj_exps))
+      }
+      for (k in seq_along(obj_exps)) {
+        all_exps[[length(all_exps) + 1]] <- obj_exps[[k]]
+        all_exp_names <- c(all_exp_names, paste0(obj_name, "__", obj_exp_names[[k]]))
+      }
+    } else if (inherits(obj, "SummarizedExperiment")) {
+      all_exps[[length(all_exps) + 1]] <- obj
+      all_exp_names <- c(all_exp_names, paste0(obj_name, "__exp1"))
+    }
+  }
+
+  if (length(all_exps) == 0) {
+    record_manifest(data.frame(
+      dataset = ds,
+      study_prefix = study_prefix,
+      product = product,
+      experiment = NA_character_,
+      assay_names = NA_character_,
+      status = "FAILED_PARSE",
+      n_samples_total = NA_integer_,
+      n_samples_kept  = NA_integer_,
+      saved_se_rds = NA_character_,
+      saved_meta_rds = NA_character_,
+      saved_abund_rds = NA_character_,
+      se_bytes = NA_real_,
+      assays_bytes = NA_real_,
+      meta_bytes = NA_real_,
+      elapsed_sec = as.numeric(difftime(Sys.time(), dataset_start, units = "secs")),
+      error = "Could not extract experiments from returned object",
+      stringsAsFactors = FALSE
+    ))
+    next
+  }
+
+  exps <- all_exps
+  exp_names <- all_exp_names
+
+  qualifying_ids <- as.character(qualifying_studies[["sample_id"]])
+  rows_before <- length(manifest)
+
+  for (i in seq_along(exps)) {
+    se <- exps[[i]]
+    exp_name <- exp_names[[i]]
+    exp_base <- safe_name(paste0(base, "__", exp_name))
+
+    se_meta <- as.data.frame(colData(se))
+    se_sample_ids <- if ("sample_id" %in% names(se_meta)) {
+      as.character(se_meta$sample_id)
+    } else {
+      as.character(colnames(se))
+    }
+
+    keep_ids <- intersect(se_sample_ids, qualifying_ids)
+    n_total <- ncol(se)
+    n_keep <- length(keep_ids)
+
+    if (n_keep == 0) {
+      record_manifest(data.frame(
+        dataset = ds,
+        study_prefix = study_prefix,
+        product = product,
+        experiment = exp_name,
+        assay_names = paste(names(SummarizedExperiment::assays(se)), collapse = ";"),
+        status = "NO_MATCHING_SAMPLES",
+        n_samples_total = n_total,
+        n_samples_kept = 0L,
+        saved_se_rds = NA_character_,
+        saved_meta_rds = NA_character_,
+        saved_abund_rds = NA_character_,
+        se_bytes = NA_real_,
+        assays_bytes = NA_real_,
+        meta_bytes = NA_real_,
+        elapsed_sec = NA_real_,
+        error = NA_character_,
+        stringsAsFactors = FALSE
+      ))
+      next
+    }
+
+    keep_idx <- se_sample_ids %in% keep_ids
+    se_sub <- se[, keep_idx]
+    kept_order <- se_sample_ids[keep_idx]
+
+    meta_sub <- qualifying_studies %>%
+      filter(sample_id %in% kept_order)
+    meta_sub <- meta_sub[match(kept_order, meta_sub$sample_id), ]
+
+    se_path <- file.path(out_dir, "rds", paste0(exp_base, "_filtered_SE.rds"))
+    meta_path <- file.path(out_dir, "rds", paste0("metadata_", exp_base, ".rds"))
+    saveRDS(se_sub, file = se_path, compress = RDS_COMPRESS)
+    saveRDS(meta_sub, file = meta_path, compress = RDS_COMPRESS)
+
+    abund_path <- NA_character_
+    assays_size <- NA_real_
+    if (SAVE_ABUNDANCE_MATRIX) {
+      assays_list <- SummarizedExperiment::assays(se_sub)
+      abund_path <- file.path(out_dir, "rds", paste0("assays_", exp_base, ".rds"))
+      saveRDS(assays_list, file = abund_path, compress = RDS_COMPRESS)
+      assays_size <- file.info(abund_path)$size
+    }
+
+    record_manifest(data.frame(
+      dataset = ds,
+      study_prefix = study_prefix,
+      product = product,
+      experiment = exp_name,
+      assay_names = paste(names(SummarizedExperiment::assays(se_sub)), collapse = ";"),
+      status = "OK",
+      n_samples_total = n_total,
+      n_samples_kept = n_keep,
+      saved_se_rds = se_path,
+      saved_meta_rds = meta_path,
+      saved_abund_rds = abund_path,
+      se_bytes = file.info(se_path)$size,
+      assays_bytes = assays_size,
+      meta_bytes = file.info(meta_path)$size,
+      elapsed_sec = NA_real_,
+      error = NA_character_,
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  rows_after <- length(manifest)
+  if (rows_after > rows_before) {
+    runtime <- as.numeric(difftime(Sys.time(), dataset_start, units = "secs"))
+    for (k in (rows_before + 1):rows_after) {
+      manifest[[k]]$elapsed_sec <- runtime
+    }
+    write.csv(bind_rows(manifest), file = manifest_path, row.names = FALSE)
+    writeLines(as.character(Sys.time()), con = done_flag)
+  }
+}
+
+manifest_df <- bind_rows(manifest)
+write.csv(manifest_df, file = manifest_path, row.names = FALSE)
+
+session_file <- file.path(out_dir, "sessionInfo.txt")
+writeLines(capture.output(sessionInfo()), con = session_file)
+
+zipfile <- file.path(out_dir, "cmd3_stool_bundle.zip")
+rds_files <- list.files(file.path(out_dir, "rds"), full.names = TRUE)
+if (length(rds_files) > 0) {
+  try(utils::zip(zipfile, files = rds_files), silent = TRUE)
+}
+
+message("\nDone.\nSaved to: ", normalizePath(out_dir, winslash = "/"))
+message("Manifest: ", normalizePath(manifest_path, winslash = "/"))
+message("Session info: ", normalizePath(session_file, winslash = "/"))
+if (file.exists(zipfile)) {
+  message("Zip: ", normalizePath(zipfile, winslash = "/"))
+} else if (length(rds_files) == 0) {
+  message("Zip not created: no files were saved under ", normalizePath(file.path(out_dir, "rds"), winslash = "/"))
+} else {
+  message("Zip not created: zip command failed. RDS files are still available under ", normalizePath(file.path(out_dir, "rds"), winslash = "/"))
+}
+```
+
+
+```{r}
+se_files <- list.files("D:/cmd3/rds", pattern = "_filtered_SE\\.rds$", full.names = TRUE)
+
+if (length(se_files) == 0) {
+  stop("No *_filtered_SE.rds files found in D:/cmd3/rds")
+}
+
+se_path <- se_files[1]
+base <- sub("_filtered_SE\\.rds$", "", basename(se_path))
+
+meta_path <- file.path("D:/cmd3/rds", paste0("metadata_", base, ".rds"))
+assays_path <- file.path("D:/cmd3/rds", paste0("assays_", base, ".rds"))
+
+se <- readRDS(se_path)
+meta <- readRDS(meta_path)
+assays_list <- readRDS(assays_path)
+
+
+```

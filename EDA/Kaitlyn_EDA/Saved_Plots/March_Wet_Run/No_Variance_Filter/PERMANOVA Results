@@ -1,0 +1,59 @@
+# ANOVA/PERMANOVA Results (For now, until there are other ways to save them)
+################################################################################
+# TAXA
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+> adonis2(dist_taxa ~ disease_class, data = meta_taxa) # Gives R2 value for disease effect
+Permutation test for adonis under reduced model
+Permutation: free
+Number of permutations: 999
+
+adonis2(formula = dist_taxa ~ disease_class, data = meta_taxa)
+           Df SumOfSqs      R2      F Pr(>F)    
+Model       8    12.20 0.02076 4.7199  0.001 ***
+Residual 1781   575.32 0.97924                  
+Total    1789   587.52 1.00000                  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+> adonis2(dist_taxa ~ study_name, data = meta_taxa) # Gives R2 value for study effect
+Permutation test for adonis under reduced model
+Permutation: free
+Number of permutations: 999
+
+adonis2(formula = dist_taxa ~ study_name, data = meta_taxa)
+           Df SumOfSqs      R2      F Pr(>F)    
+Model      11    65.20 0.11098 20.177  0.001 ***
+Residual 1778   522.32 0.88902                  
+Total    1789   587.52 1.00000                  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+################################################################################
+# PATHWAY COVERAGE
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+> adonis2(dist_mat ~ disease_class, data = meta_cov)
+Permutation test for adonis under reduced model
+Permutation: free
+Number of permutations: 999
+
+adonis2(formula = dist_mat ~ disease_class, data = meta_cov)
+           Df SumOfSqs      R2      F Pr(>F)    
+Model       8     8.38 0.01552 3.5098  0.001 ***
+Residual 1781   531.56 0.98448                  
+Total    1789   539.94 1.00000                  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+> adonis2(dist_mat ~ study_name, data = meta_cov) # Gives R2 value for study effect
+Permutation test for adonis under reduced model
+Permutation: free
+Number of permutations: 999
+
+adonis2(formula = dist_mat ~ study_name, data = meta_cov)
+           Df SumOfSqs      R2      F Pr(>F)    
+Model      11    54.51 0.10095 18.149  0.001 ***
+Residual 1778   485.44 0.89905                  
+Total    1789   539.94 1.00000                  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
