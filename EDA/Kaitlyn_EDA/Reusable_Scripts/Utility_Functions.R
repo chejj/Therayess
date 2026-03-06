@@ -18,6 +18,48 @@ assert_col <- function(df, col) { # Checks if column is in the data frame
   }
 }
 
+eda_overview_table <- function(df) {
+  
+  if (!is.data.frame(df)) {
+    stop("Input must be a data frame.", call. = FALSE)
+  }
+  
+  results <- lapply(names(df), function(var) {
+    
+    x <- df[[var]]
+    
+    n_total   <- length(x)
+    n_missing <- sum(is.na(x))
+    pct_miss  <- round(100 * mean(is.na(x)), 2)
+    n_unique  <- length(unique(x[!is.na(x)]))
+    
+    # Variable type detection
+    var_type <- if (is.numeric(x) || is.integer(x)) {
+      "Numeric"
+    } else if (is.factor(x) && is.ordered(x)) {
+      "Categorical (Ordered)"
+    } else if (is.factor(x) || is.character(x) || is.logical(x)) {
+      "Categorical (Nominal)"
+    } else {
+      paste("Other (", paste(class(x), collapse = ", "), ")", sep = "")
+    }
+    
+    data.frame(
+      Column_Name     = var,
+      Total_Count     = n_total,
+      Missing_Count   = n_missing,
+      Percent_Missing = pct_miss,
+      Unique_Values   = n_unique,
+      Variable_Type   = var_type,
+      stringsAsFactors = FALSE
+    )
+  })
+  
+  overview_table <- do.call(rbind, results)
+  
+  return(overview_table)
+}
+
 eda_single_var <- function(df, var, top_n = 20) {
   
   # ---- Safety Checks ----
