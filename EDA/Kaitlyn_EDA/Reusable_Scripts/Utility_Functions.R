@@ -18,8 +18,8 @@ assert_col <- function(df, col) { # Checks if column is in the data frame
   }
 }
 
-eda_overview_table <- function(df) {
-  
+eda_single_var <- function(df, var, top_n = 20) {
+
   if (!is.data.frame(df)) {
     stop("Input must be a data frame.", call. = FALSE)
   }
