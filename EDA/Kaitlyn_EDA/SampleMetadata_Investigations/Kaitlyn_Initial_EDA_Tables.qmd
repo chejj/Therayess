@@ -10,6 +10,7 @@ editor: visual
 #| label: Setup
 # ---
 source("../Qualifying_Studies_List.R")  
+source("Reusable_Scripts/Utility_Functions.R")
 suppressPackageStartupMessages({
   library(dplyr)
   library(knitr)

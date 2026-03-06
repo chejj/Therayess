@@ -18,8 +18,8 @@ assert_col <- function(df, col) { # Checks if column is in the data frame
   }
 }
 
-eda_overview_table <- function(df) {
-  
+eda_single_var <- function(df, var, top_n = 20) {
+
   if (!is.data.frame(df)) {
     stop("Input must be a data frame.", call. = FALSE)
   }
@@ -61,7 +61,9 @@ eda_overview_table <- function(df) {
 }
 
 eda_single_var <- function(df, var, top_n = 20) {
+
   
+    
   # ---- Safety Checks ----
   if (!is.data.frame(df)) {
     stop("df must be a data.frame.", call. = FALSE)
@@ -187,6 +189,7 @@ eda_single_var <- function(df, var, top_n = 20) {
     n_distinct = n_unique
   )))
 }
+
 
 # Categorical Variables
 #######################
