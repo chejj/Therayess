@@ -17,7 +17,6 @@ studies <- qualifying_studies %>%
 print(studies)
 
 # --- Initialization --- 
-merged_by_focus <- list()
 CRC_progression_studies <- list()
 
 # --- helpers --- # adds a backslash in front of any regex special character inside study names.
