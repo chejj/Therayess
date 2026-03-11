@@ -8,9 +8,9 @@ format: html
 ```{r}
 #| label: Setup
 # ---
-#source("../Wet_Runs.R")
-source("../../project_settings.R")
-source("../Reusable_Scripts/Utility_Functions.R")
+#source(here::here("EDA", "Kaitlyn_EDA", "Wet_Runs.R"))
+source(here::here("EDA", "project_settings.R"))
+source(here::here("EDA", "Kaitlyn_EDA", "Reusable_Scripts", "Utility_Functions.R"))
 
 suppressPackageStartupMessages({
   library(ggplot2)

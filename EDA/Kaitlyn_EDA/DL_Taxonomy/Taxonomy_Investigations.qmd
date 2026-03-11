@@ -8,9 +8,9 @@ format: html
 ```{r}
 #| label: Setup
 # ---
-#source("../Wet_Runs.R")
-source("../../project_settings.R")
-source("../Reusable_Scripts/Utility_Functions.R")
+source(here::here("EDA", "Kaitlyn_EDA", "Wet_Runs.R"))
+source(here::here("EDA", "project_settings.R"))
+source(here::here("EDA", "Kaitlyn_EDA", "Reusable_Scripts", "Utility_Functions.R"))
 
 suppressPackageStartupMessages({
   library(ggplot2)
@@ -97,7 +97,7 @@ taxa_meta_overview %>%
     high = "white",
     limits = c(0, 100)
   ) +
-  scale_y_discrete(expand = expansion(mult = c(0.02, 0.02))) +         # <-- moved here
+  scale_y_discrete(expand = expansion(mult = c(0.02, 0.02))) +
   labs(
     title = "Structural Metadata Completeness:\nAll Studies - Relative Abundance Data",
     subtitle = "Percent rows with missing values",
@@ -123,7 +123,7 @@ Thomas2018a_taxa_meta_overview %>%
     high = "white",
     limits = c(0, 100)
   ) +
-  scale_y_discrete(expand = expansion(mult = c(0.02, 0.02))) +         # <-- moved here
+  scale_y_discrete(expand = expansion(mult = c(0.02, 0.02))) +
   labs(
     title = "Structural Metadata Completeness:\nThomasAM_2018a - Relative Abundance Data",
     subtitle = "Percent rows with missing values",
@@ -138,4 +138,75 @@ Thomas2018a_taxa_meta_overview %>%
     plot.title = element_text(face = "bold", size = 10, hjust = 0.5),
     plot.subtitle = element_text(size = 9, hjust = 0.5)
   )
+```
+
+# Summary Statistics: Metadata
+
+## Disease-Related
+
+```{r}
+#| label: Disease Related Summary Statistics
+# ---
+# Study Condition
+table(taxa_meta$study_condition, useNA = "ifany") %>% 
+  as.data.frame() %>%          # convert table to dataframe
+  kbl(col.names = c("Study Condition", "Count")) %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, bold = TRUE)
+
+# Our Proposed CRC Progression Classifiers
+table(taxa_meta$disease_class, useNA = "ifany") %>%
+  as.data.frame() %>%
+  kbl(col.names = c("Disease Class", "Count")) %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, bold = TRUE)
+
+# The diagnosed diseases of patients across the classifiers
+table(taxa_meta$disease, taxa_meta$disease_class, useNA = "ifany") %>%
+  as.data.frame.matrix() %>%   
+  tibble::rownames_to_column("Disease Diagnoses") %>%
+  kbl() %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(1, bold = TRUE)
+```
+
+## Age Related
+
+```{r}
+
+table(taxa_meta$age_decade, useNA = "ifany") %>%
+  as.data.frame() %>%
+  kbl(col.names = c("Age Decade", "Count")) %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, bold = TRUE)
+
+
+taxa_meta %>% 
+  summarize(
+    N = sum(!is.na(age)), 
+    Mean = mean(age, na.rm = TRUE), 
+    SD = sd(age, na.rm = TRUE),
+    Median = median(age, na.rm = TRUE),
+    Q1 = quantile(age, 0.25, na.rm = TRUE),
+    Q3 = quantile(age, 0.75, na.rm = TRUE)
+  )  %>%
+  # Make Vertical Table
+  # -------------------
+  tidyr::pivot_longer(
+    everything(),
+    names_to = "Statistic",
+    values_to = "Value"
+  ) %>%
+  kbl(digits = 2) %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, bold = TRUE)
+
+```
+
+## Life-Style / Geography Related
+
+```{r}
+
+summary(taxa_meta$BMI)
+
 ```

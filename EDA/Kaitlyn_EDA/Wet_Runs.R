@@ -5,7 +5,7 @@ dryrun_mode <- FALSE
 ################################################################################
 
 # --- Qualifying Studies List ---
-source("./EDA/Qualifying_Studies_List.R")
+source(here::here("EDA", "Qualifying_Studies_List.R"))
 
 # --- Interested in: --- 
 focus <- c("relative_abundance", "pathway_abundance", "pathway_coverage")
