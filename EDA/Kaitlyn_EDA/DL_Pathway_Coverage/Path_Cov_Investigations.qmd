@@ -1,0 +1,141 @@
+---
+title: "Pathway Coverage Investigations"
+format: html
+---
+
+### Library Load & Setup
+
+```{r}
+#| label: Setup
+# ---
+#source(here::here("EDA", "Kaitlyn_EDA", "Wet_Runs.R"))
+source(here::here("EDA", "project_settings.R"))
+source(here::here("EDA", "Kaitlyn_EDA", "Reusable_Scripts", "Utility_Functions.R"))
+
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(knitr)
+  library(patchwork)
+  library(mia)  # for mergeData
+  library(SummarizedExperiment)
+})
+```
+
+# Structural Metadata Overview
+
+## Tables
+
+```{r}
+#| label: Metadata Overview
+# ---
+
+# Single Study, nested list (Example)
+Thomas2018a_pathcov <- CRC_progression_studies[["ThomasAM_2018a"]][["pathway_coverage"]]
+
+# All studies combined to one list
+pathcov <- merge_studies(CRC_progression_studies, "pathway_coverage")
+
+# Metadata into dataframes from nested list
+Thomas2018a_pathcov_meta <- as.data.frame(colData(Thomas2018a_pathcov))
+pathcov_meta <- as.data.frame(colData(pathcov))
+
+# Overview Tables
+Thomas2018a_pathcov_meta_overview <- eda_overview_table(Thomas2018a_pathcov_meta)
+pathcov_meta_overview <- eda_overview_table(pathcov_meta)
+
+Thomas2018a_pathcov_meta_overview %>%
+  arrange(Percent_Missing) %>%
+  mutate(Index = row_number()) %>%              
+  select(Index, everything()) %>%               
+  kbl(
+    col.names = c("Index",
+                  "Variable Name",
+                  "Total Rows",
+                  "Empty Rows",
+                  "Percent Missing",
+                  "Unique Values",
+                  "Variable Type"),
+    caption = "Structural Metadata Summary for ThomasAM_2018a Pathway Coverage Data",
+    format = "html"
+  ) %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, bold = TRUE)
+
+pathcov_meta_overview %>%
+  arrange(Percent_Missing) %>%
+  mutate(Index = row_number()) %>%              
+  select(Index, everything()) %>%               
+  kbl(
+    col.names = c("Index",
+                  "Variable Name",
+                  "Total Rows",
+                  "Empty Rows",
+                  "Percent Missing",
+                  "Unique Values",
+                  "Variable Type"),
+    caption = "Structural Metadata Summary for All Pathway Coverage Data",
+    format = "html"
+  ) %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, bold = TRUE)
+```
+
+## Plots/Maps
+
+```{r}
+#| label: Metadata Overview - Plots/Maps
+# ---
+
+# Heatmap of Metadata Completeness
+pathcov_meta_overview %>%
+  arrange(desc(Percent_Missing)) %>%
+  mutate(Column_Name = factor(Column_Name, levels = Column_Name)) %>%  # lock order
+  ggplot(aes(x = "", y = Column_Name, fill = Percent_Missing)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(
+    low = "steelblue",
+    high = "white",
+    limits = c(0, 100)
+  ) +
+  scale_y_discrete(expand = expansion(mult = c(0.02, 0.02))) +         # <-- moved here
+  labs(
+    title = "Structural Metadata Completeness:\nAll Studies - Pathway Coverage Data",
+    subtitle = "Percent rows with missing values",
+    x = NULL,
+    y = NULL
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.y = element_text(size = 7, lineheight = 2),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    plot.title = element_text(face = "bold", size = 10, hjust = 0.5),
+    plot.subtitle = element_text(size = 9, hjust = 0.5)
+  )
+
+Thomas2018a_pathcov_meta_overview %>%
+  arrange(desc(Percent_Missing)) %>%
+  mutate(Column_Name = factor(Column_Name, levels = Column_Name)) %>%  # lock order
+  ggplot(aes(x = "", y = Column_Name, fill = Percent_Missing)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(
+    low = "steelblue",
+    high = "white",
+    limits = c(0, 100)
+  ) +
+  scale_y_discrete(expand = expansion(mult = c(0.02, 0.02))) +         # <-- moved here
+  labs(
+    title = "Structural Metadata Completeness:\nThomasAM_2018a - Pathway Coverage Data",
+    subtitle = "Percent rows with missing values",
+    x = NULL,
+    y = NULL
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.y = element_text(size = 7, lineheight = 2),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    plot.title = element_text(face = "bold", size = 10, hjust = 0.5),
+    plot.subtitle = element_text(size = 9, hjust = 0.5)
+  )
+```

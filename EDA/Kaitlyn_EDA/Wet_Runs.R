@@ -5,7 +5,7 @@ dryrun_mode <- FALSE
 ################################################################################
 
 # --- Qualifying Studies List ---
-source("./EDA/Qualifying_Studies_List.R")
+source(here::here("EDA", "Qualifying_Studies_List.R"))
 
 # --- Interested in: --- 
 focus <- c("relative_abundance", "pathway_abundance", "pathway_coverage")
@@ -17,7 +17,6 @@ studies <- qualifying_studies %>%
 print(studies)
 
 # --- Initialization --- 
-merged_by_focus <- list()
 CRC_progression_studies <- list()
 
 # --- helpers --- # adds a backslash in front of any regex special character inside study names.

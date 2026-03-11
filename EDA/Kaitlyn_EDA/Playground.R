@@ -26,7 +26,6 @@ hist(v, breaks = 50, main = rownames(mat)[1], xlab = "Value")
 summary(colSums(mat))
 range(mat, na.rm = TRUE)
 
-
 ################################################################################
 # Merging nested data → this will be important for LODO!!
 
@@ -34,7 +33,7 @@ range(mat, na.rm = TRUE)
 library(mia)  # for mergeData
 library(SummarizedExperiment)
 
-merge_all_studies <- function(nested, type) {
+merge_studies <- function(nested, type) {
   objs <- lapply(nested, `[[`, type) # extracts the objects for one type, objs becomes a list with one element per study
   objs <- objs[!vapply(objs, is.null, logical(1))] # removes missing entries, returns logical TRUE/FALSE vector, that's flipped to drop nulls
   mergeData(objs)

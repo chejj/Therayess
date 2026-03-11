@@ -1,0 +1,212 @@
+---
+title: "Taxonomy Investigations"
+format: html
+---
+
+### Library Load & Setup
+
+```{r}
+#| label: Setup
+# ---
+source(here::here("EDA", "Kaitlyn_EDA", "Wet_Runs.R"))
+source(here::here("EDA", "project_settings.R"))
+source(here::here("EDA", "Kaitlyn_EDA", "Reusable_Scripts", "Utility_Functions.R"))
+
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(knitr)
+  library(patchwork)
+  library(mia)  # for mergeData
+  library(SummarizedExperiment)
+})
+```
+
+# Structural Metadata Overview
+
+## Tables
+
+```{r}
+#| label: Metadata Overview - Tables
+# ---
+
+# Single Study, nested list (Example)
+Thomas2018a_taxa <- CRC_progression_studies[["ThomasAM_2018a"]][["relative_abundance"]]
+
+# All studies combined to one list
+taxa <- merge_studies(CRC_progression_studies, "relative_abundance")
+
+# Metadata into dataframes from nested list
+Thomas2018a_taxa_meta <- as.data.frame(colData(Thomas2018a_taxa))
+taxa_meta <- as.data.frame(colData(taxa))
+
+# Overview Tables
+Thomas2018a_taxa_meta_overview <- eda_overview_table(Thomas2018a_taxa_meta)
+taxa_meta_overview <- eda_overview_table(taxa_meta)
+
+Thomas2018a_taxa_meta_overview %>%
+  arrange(Percent_Missing) %>%
+  mutate(Index = row_number()) %>%              
+  select(Index, everything()) %>%               
+  kbl(
+    col.names = c("Index",
+                  "Variable Name",
+                  "Total Rows",
+                  "Empty Rows",
+                  "Percent Missing",
+                  "Unique Values",
+                  "Variable Type"),
+    caption = "Structural Metadata Summary for ThomasAM_2018a Relative Abundance Data",
+    format = "html"
+  ) %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, bold = TRUE)
+
+taxa_meta_overview %>%
+  arrange(Percent_Missing) %>%
+  mutate(Index = row_number()) %>%              
+  select(Index, everything()) %>%               
+  kbl(
+    col.names = c("Index",
+                  "Variable Name",
+                  "Total Rows",
+                  "Empty Rows",
+                  "Percent Missing",
+                  "Unique Values",
+                  "Variable Type"),
+    caption = "Structural Metadata Summary for All Relative Abundance Data",
+    format = "html"
+  ) %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, bold = TRUE)
+```
+
+## Plots/Maps
+
+```{r}
+#| label: Metadata Overview - Plots/Maps
+# ---
+
+# Heatmap of Metadata Completeness
+taxa_meta_overview %>%
+  arrange(desc(Percent_Missing)) %>%
+  mutate(Column_Name = factor(Column_Name, levels = Column_Name)) %>%  # lock order
+  ggplot(aes(x = "", y = Column_Name, fill = Percent_Missing)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(
+    low = "steelblue",
+    high = "white",
+    limits = c(0, 100)
+  ) +
+  scale_y_discrete(expand = expansion(mult = c(0.02, 0.02))) +
+  labs(
+    title = "Structural Metadata Completeness:\nAll Studies - Relative Abundance Data",
+    subtitle = "Percent rows with missing values",
+    x = NULL,
+    y = NULL
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.y = element_text(size = 7, lineheight = 2),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    plot.title = element_text(face = "bold", size = 10, hjust = 0.5),
+    plot.subtitle = element_text(size = 9, hjust = 0.5)
+  )
+
+Thomas2018a_taxa_meta_overview %>%
+  arrange(desc(Percent_Missing)) %>%
+  mutate(Column_Name = factor(Column_Name, levels = Column_Name)) %>%  # lock order
+  ggplot(aes(x = "", y = Column_Name, fill = Percent_Missing)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(
+    low = "steelblue",
+    high = "white",
+    limits = c(0, 100)
+  ) +
+  scale_y_discrete(expand = expansion(mult = c(0.02, 0.02))) +
+  labs(
+    title = "Structural Metadata Completeness:\nThomasAM_2018a - Relative Abundance Data",
+    subtitle = "Percent rows with missing values",
+    x = NULL,
+    y = NULL
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.y = element_text(size = 7, lineheight = 2),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    plot.title = element_text(face = "bold", size = 10, hjust = 0.5),
+    plot.subtitle = element_text(size = 9, hjust = 0.5)
+  )
+```
+
+# Summary Statistics: Metadata
+
+## Disease-Related
+
+```{r}
+#| label: Disease Related Summary Statistics
+# ---
+# Study Condition
+table(taxa_meta$study_condition, useNA = "ifany") %>% 
+  as.data.frame() %>%          # convert table to dataframe
+  kbl(col.names = c("Study Condition", "Count")) %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, bold = TRUE)
+
+# Our Proposed CRC Progression Classifiers
+table(taxa_meta$disease_class, useNA = "ifany") %>%
+  as.data.frame() %>%
+  kbl(col.names = c("Disease Class", "Count")) %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, bold = TRUE)
+
+# The diagnosed diseases of patients across the classifiers
+table(taxa_meta$disease, taxa_meta$disease_class, useNA = "ifany") %>%
+  as.data.frame.matrix() %>%   
+  tibble::rownames_to_column("Disease Diagnoses") %>%
+  kbl() %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(1, bold = TRUE)
+```
+
+## Age Related
+
+```{r}
+
+table(taxa_meta$age_decade, useNA = "ifany") %>%
+  as.data.frame() %>%
+  kbl(col.names = c("Age Decade", "Count")) %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, bold = TRUE)
+
+
+taxa_meta %>% 
+  summarize(
+    N = sum(!is.na(age)), 
+    Mean = mean(age, na.rm = TRUE), 
+    SD = sd(age, na.rm = TRUE),
+    Median = median(age, na.rm = TRUE),
+    Q1 = quantile(age, 0.25, na.rm = TRUE),
+    Q3 = quantile(age, 0.75, na.rm = TRUE)
+  )  %>%
+  # Make Vertical Table
+  # -------------------
+  tidyr::pivot_longer(
+    everything(),
+    names_to = "Statistic",
+    values_to = "Value"
+  ) %>%
+  kbl(digits = 2) %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, bold = TRUE)
+
+```
+
+## Life-Style / Geography Related
+
+```{r}
+
+summary(taxa_meta$BMI)
+
+```

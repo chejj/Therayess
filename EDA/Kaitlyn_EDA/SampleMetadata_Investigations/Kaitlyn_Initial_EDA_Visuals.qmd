@@ -11,8 +11,8 @@ grid:
 ```{r}
 #| label: Setup
 # ---
-source("../Qualifying_Studies_List.R")
-source("../project_settings.R")
+source("../../Qualifying_Studies_List.R")
+source("../../project_settings.R")
 
 suppressPackageStartupMessages({
   library(ggplot2)
