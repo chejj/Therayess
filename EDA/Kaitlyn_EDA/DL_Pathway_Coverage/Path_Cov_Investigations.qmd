@@ -14,8 +14,10 @@ source(here::here("EDA", "Kaitlyn_EDA", "Reusable_Scripts", "Utility_Functions.R
 suppressPackageStartupMessages({
   library(ggplot2)
   library(knitr)
-  library(patchwork)
-  library(mia)  # for mergeData
+  library(kableExtra)
+  library(tidyverse)
+  library(RColorBrewer)
+  library(curatedMetagenomicData)  # for mergeData
   library(SummarizedExperiment)
 })
 ```
