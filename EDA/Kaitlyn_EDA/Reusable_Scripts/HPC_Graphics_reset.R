@@ -16,3 +16,7 @@ dev.list() # Should return a list with RStudioGD in it
 plot(1:10) # test plot
 
 # Try running the plot again, should work now
+
+# May need to install library after restart of R
+install.packages("curl", type = "source")
+library(curl)
