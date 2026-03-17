@@ -30,12 +30,12 @@ progression_legend_title <- "CRC Progression\nClassifiers"
 
 # Color Blindness Colors
 ########################
-fareblind15 <- c("#000000","#004949",
+fareblind15 <- c("#004949",
                  "#009292","#FF6DB6",
                  "#FFB6DB","#490092",
                  "#006DDB","#B66DFF",
                  "#6DB6FF","#B6DBFF",
                  "#920000","#924900",
                  "#DB6D00","#24FF24",
-                 "#FFFF6D")
+                 "#FFFF6D","#000000")
 

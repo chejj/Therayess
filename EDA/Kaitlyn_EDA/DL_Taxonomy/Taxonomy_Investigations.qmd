@@ -8,20 +8,21 @@ format: html
 ```{r}
 #| label: Setup
 # ---
-source(here::here("EDA", "Kaitlyn_EDA", "Wet_Runs.R"))
 source(here::here("EDA", "project_settings.R"))
 source(here::here("EDA", "Kaitlyn_EDA", "Reusable_Scripts", "Utility_Functions.R"))
 
 suppressPackageStartupMessages({
   library(ggplot2)
   library(knitr)
-  library(patchwork)
-  library(mia)  # for mergeData
+  library(kableExtra)
+  library(tidyverse)
+  library(RColorBrewer)
+  library(curatedMetagenomicData)  # for mergeData
   library(SummarizedExperiment)
 })
 ```
 
-# Structural Metadata Overview
+# Metadata Overview
 
 ## Tables
 
@@ -140,6 +141,161 @@ Thomas2018a_taxa_meta_overview %>%
   )
 ```
 
+# CRC Classifiers Spread
+
+The spread of the CRC Progression classifiers, as well as the spread of other categorical variables across each of these categories can indicate potential sources of bias in either the data, the disease, or other sources.
+
+## Spread of the classifiers
+
+Given the spread, we will need to find a way to deal with the imbalance in classifier levels, particularly for the "-m" categories.
+
+-   potential cutoff of 30? IE if there's not at least 30 to a group, add it to the next logical group (-M would go to CRC/PA pure)
+
+-   Weighed importance for those groups with less individuals?
+
+```{r}
+#| label: CRC Progression Classifier Bias Checks
+# ---
+taxa_meta %>% 
+  ggplot(aes(x=disease_class, stat = "count", fill = disease_class)) +
+  geom_bar() +
+  geom_text(stat = "count", aes(label = after_stat(count)), 
+            vjust = -0.21, size = 3.5, color = "black") +
+  scale_fill_manual(values = progression_colors, 
+                    name = progression_legend_title) +
+  # Labeling
+  #---------
+  labs(y = "Sample Count", x = "CRC Progression Classes") +
+  ggtitle("Counts of CRC Progression Classes in Study")
+```
+
+## Potential Biases in CRC Progression Classes
+
+Biases can be found through proportions checking– are a higher proportion of one group in a particular classifier than another?
+
+### Demographic and Clinical Sources of Bias
+
+```{r}
+#| label: Demographic and Clinical Characteristics
+# ---
+# Gender
+taxa_meta %>% 
+  ggplot(aes(x=disease_class, stat = "count", fill = gender)) +
+  geom_bar(position = "fill") +
+  scale_fill_brewer(palette = "Set3") +
+  # Labeling
+  #---------
+  labs(y = "Proportion", x = "CRC Progression Classes") +
+  ggtitle("Proportion of Gender per CRC Progression Class")
+
+# Age Category
+taxa_meta %>% 
+  ggplot(aes(x=disease_class, stat = "count", fill = age_category)) +
+  geom_bar(position = "fill") +
+  scale_fill_brewer(palette = "Set3") +
+  # Labeling
+  #---------
+  labs(y = "Proportion", x = "CRC Progression Classes") +
+  ggtitle("Proportion of Age Category per CRC Progression Class")
+
+# Age Decade
+taxa_meta %>% 
+  ggplot(aes(x=disease_class, stat = "count", fill = age_decade)) +
+  geom_bar(position = "fill") +
+  scale_fill_brewer(palette = "Set3") +
+  # Labeling
+  #---------
+  labs(y = "Proportion", x = "CRC Progression Classes") +
+  ggtitle("Proportion of Age Decade per CRC Progression Class")
+
+# Country
+taxa_meta %>% 
+  ggplot(aes(x=disease_class, stat = "count", fill = country)) +
+  geom_bar(position = "fill") +
+  scale_fill_brewer(palette = "Set3") +
+  # Labeling
+  #---------
+  labs(y = "Proportion", x = "CRC Progression Classes") +
+  ggtitle("Proportion of Country per CRC Progression Class")
+
+# Location (City)
+taxa_meta %>% 
+  ggplot(aes(x=disease_class, stat = "count", fill = location)) +
+  geom_bar(position = position_fill(reverse = TRUE)) +
+  scale_fill_brewer(palette = "Set3") +
+  # Labeling
+  #---------
+  labs(y = "Proportion", x = "CRC Progression Classes") +
+  ggtitle("Proportion of City per CRC Progression Class")
+
+# Non-Westernized
+taxa_meta %>% 
+  ggplot(aes(x=disease_class, stat = "count", fill = non_westernized)) +
+  geom_bar(position = "fill") +
+  scale_fill_brewer(palette = "Set3") +
+  # Labeling
+  #---------
+  labs(y = "Proportion", x = "CRC Progression Classes") +
+  ggtitle("Proportion of 'non-westernized' per CRC Progression Class")
+
+# Disease Location
+taxa_meta %>% 
+  ggplot(aes(x=disease_class, stat = "count", fill = disease_location)) +
+  geom_bar(position = position_fill(reverse = TRUE)) +
+  scale_fill_brewer(palette = "Set3") +
+  # Labeling
+  #---------
+  labs(y = "Proportion", x = "CRC Progression Classes") +
+  ggtitle("Proportion of Disease Location per CRC Progression Class")
+
+# Disease Subtype
+taxa_meta %>% 
+  ggplot(aes(x=disease_class, stat = "count", fill = disease_subtype)) +
+  geom_bar(position = position_fill(reverse = TRUE)) +
+  scale_fill_brewer(palette = "Set3") +
+  # Labeling
+  #---------
+  labs(y = "Proportion", x = "CRC Progression Classes") +
+  ggtitle("Proportion of Disease Subtype per CRC Progression Class")
+
+```
+
+### Technical and Curation-Related Sources of Bias
+
+```{r}
+#| label: Technical and Curation-Related
+# ---
+# Curator
+taxa_meta %>% 
+  ggplot(aes(x=disease_class, stat = "count", fill = curator)) +
+  geom_bar(position = "fill") +
+  scale_fill_brewer(palette = "Set3") +
+  # Labeling
+  #---------
+  labs(y = "Proportion", x = "CRC Progression Classes") +
+  ggtitle("Proportion of Curator per CRC Progression Class")
+
+# Sequencing Platform
+taxa_meta %>% 
+  ggplot(aes(x=disease_class, stat = "count", fill = sequencing_platform)) +
+  geom_bar(position = "fill") +
+  scale_fill_brewer(palette = "Set3") +
+  # Labeling
+  #---------
+  labs(y = "Proportion", x = "CRC Progression Classes") +
+  ggtitle("Proportion of Sequencing Platform per CRC Progression Class")
+
+# DNA Extraction Kit
+taxa_meta %>% 
+  ggplot(aes(x=disease_class, stat = "count", fill = DNA_extraction_kit)) +
+  geom_bar(position = position_fill(reverse = TRUE)) +
+  scale_fill_brewer(palette = "Set3") +
+  # Labeling
+  #---------
+  labs(y = "Proportion", x = "CRC Progression Classes") +
+  ggtitle("Proportion of DNA Extraction Kit per CRC Progression Class")
+```
+
 # Summary Statistics: Metadata
 
 ## Disease-Related
@@ -150,14 +306,16 @@ Thomas2018a_taxa_meta_overview %>%
 # Study Condition
 table(taxa_meta$study_condition, useNA = "ifany") %>% 
   as.data.frame() %>%          # convert table to dataframe
-  kbl(col.names = c("Study Condition", "Count")) %>%
+  kbl(col.names = c("Study Condition", "Count"), 
+      caption = "Original Study Condition") %>%
   kable_styling(full_width = FALSE) %>%
   column_spec(2, bold = TRUE)
 
 # Our Proposed CRC Progression Classifiers
 table(taxa_meta$disease_class, useNA = "ifany") %>%
   as.data.frame() %>%
-  kbl(col.names = c("Disease Class", "Count")) %>%
+  kbl(col.names = c("CRC Progression Class", "Count"), 
+      caption = "Proposed CRC Progression Classifier Spread") %>%
   kable_styling(full_width = FALSE) %>%
   column_spec(2, bold = TRUE)
 
@@ -165,7 +323,8 @@ table(taxa_meta$disease_class, useNA = "ifany") %>%
 table(taxa_meta$disease, taxa_meta$disease_class, useNA = "ifany") %>%
   as.data.frame.matrix() %>%   
   tibble::rownames_to_column("Disease Diagnoses") %>%
-  kbl() %>%
+  kbl(
+    caption = "2-D table of Diagnosed Diseases across CRC Progression Classifiers") %>%
   kable_styling(full_width = FALSE) %>%
   column_spec(1, bold = TRUE)
 ```
@@ -173,13 +332,15 @@ table(taxa_meta$disease, taxa_meta$disease_class, useNA = "ifany") %>%
 ## Age Related
 
 ```{r}
+#| label: Age Related Summary Statistics
+# ---
 
 table(taxa_meta$age_decade, useNA = "ifany") %>%
   as.data.frame() %>%
-  kbl(col.names = c("Age Decade", "Count")) %>%
+  kbl(col.names = c("Age Decade", "Count"), 
+      caption = "Spread of Age by Decade") %>%
   kable_styling(full_width = FALSE) %>%
   column_spec(2, bold = TRUE)
-
 
 taxa_meta %>% 
   summarize(
@@ -197,16 +358,253 @@ taxa_meta %>%
     names_to = "Statistic",
     values_to = "Value"
   ) %>%
-  kbl(digits = 2) %>%
+  kbl(digits = 2, caption = "Age Summary Statistics") %>%
   kable_styling(full_width = FALSE) %>%
   column_spec(2, bold = TRUE)
 
+taxa_meta %>% 
+  group_by(gender) %>% 
+  summarize(
+    N = n(), 
+    Mean = mean(age, na.rm = TRUE), 
+    SD = sd(age, na.rm = TRUE),
+    Median = median(age, na.rm = TRUE),
+    Q1 = quantile(age, 0.25, na.rm = TRUE),
+    Q3 = quantile(age, 0.75, na.rm = TRUE), 
+    .groups = "drop"
+  )  %>%
+  mutate(
+    pct = 100 * N / sum(N),
+    `N (%)` = sprintf("%d (%.1f%%)", N, pct)
+  ) %>%
+  select(gender, `N (%)`, Mean, SD, Median, Q1, Q3) %>% 
+  kbl(digits = 2, caption = "Age Summary Statistics by Gender") %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, bold = TRUE)
 ```
 
 ## Life-Style / Geography Related
 
+### BMI
+
 ```{r}
+#| label: BMI Related Summary Statistics
+# --- 
+# BMI
+######
+taxa_meta %>% 
+  summarize(
+    N = sum(!is.na(BMI)), 
+    Mean = mean(BMI, na.rm = TRUE), 
+    SD = sd(BMI, na.rm = TRUE),
+    Median = median(BMI, na.rm = TRUE),
+    Q1 = quantile(BMI, 0.25, na.rm = TRUE),
+    Q3 = quantile(BMI, 0.75, na.rm = TRUE)
+  )  %>%
+  # Make Vertical Table
+  # -------------------
+  tidyr::pivot_longer(
+    everything(),
+    names_to = "Statistic",
+    values_to = "Value"
+  ) %>%
+  kbl(digits = 2, caption = "BMI Summary Statistics") %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, bold = TRUE)
 
-summary(taxa_meta$BMI)
-
+taxa_meta %>% 
+  group_by(disease_class) %>% 
+  summarize(
+    N = n(), 
+    Mean = mean(BMI, na.rm = TRUE), 
+    SD = sd(BMI, na.rm = TRUE),
+    Median = median(BMI, na.rm = TRUE),
+    Q1 = quantile(BMI, 0.25, na.rm = TRUE),
+    Q3 = quantile(BMI, 0.75, na.rm = TRUE), 
+    .groups = "drop"
+  )  %>%
+  select(disease_class, N , Mean, SD, Median, Q1, Q3) %>% 
+  kbl(digits = 2, caption = "BMI Summary Statistics by CRC Progression Classifier") %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, bold = TRUE)
 ```
+
+### Geography
+
+```{r}
+#| label: Geography Related Summary Statistics
+# ---
+
+table(taxa_meta$country, useNA = "ifany") %>%
+  as.data.frame() %>%
+  arrange(desc(Freq)) %>% 
+  kbl(col.names = c("Country", "Count"), 
+      caption = "Country Frequency") %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, bold = TRUE) 
+
+table(taxa_meta$location, useNA = "ifany") %>%
+  as.data.frame() %>%
+  arrange(desc(Freq)) %>% 
+  kbl(col.names = c("City", "Count"), 
+      caption = "City Frequency") %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, bold = TRUE)
+```
+
+# Accessing the Taxa Data
+
+```{r}
+#| label: MetaPhlAn3 (Taxa) Data
+# ---
+mat_taxa <- assay(taxa)
+
+# Taxonomy dataframe
+taxa_df <- as.data.frame(mat_taxa) %>% 
+  tibble::rownames_to_column("taxonomy") %>% 
+  mutate( # Extract the tree of all species
+    kingdom = stringr::str_extract(taxonomy, "k__[^|]+"), 
+    kingdom = stringr::str_remove(kingdom, "k__"),
+    phylum = stringr::str_extract(taxonomy, "p__[^|]+"), 
+    phylum = stringr::str_remove(phylum, "p__"), 
+    tax_class = stringr::str_extract(taxonomy, "c__[^|]+"), 
+    tax_class = stringr::str_remove(tax_class, "c__"),
+    order = stringr::str_extract(taxonomy, "o__[^|]+"), 
+    order = stringr::str_remove(order, "o__"), 
+    family = stringr::str_extract(taxonomy, "f__[^|]+"), 
+    family = stringr::str_remove(family, "f__"),
+    genus = stringr::str_extract(taxonomy, "g__[^|]+"), 
+    genus = stringr::str_remove(genus, "g__"),
+    species = stringr::str_extract(taxonomy, "s__[^|]+"), 
+    species = stringr::str_remove(species, "s__")
+  ) %>% 
+  mutate( # extract the mean abundance across all samples
+    mean_abundance = rowMeans(dplyr::select(., where(is.numeric)), na.rm = TRUE)
+  )
+
+# --- Kingdom to Class Version --- 
+taxa_hierarchy_table <- taxa_df %>% 
+  group_by(kingdom, phylum, tax_class) %>% 
+  summarize(
+    mean_abundance = sum(mean_abundance, na.rm = TRUE),
+    .groups = "drop"
+  ) %>% 
+  arrange(kingdom, phylum, desc(mean_abundance)) %>% 
+  mutate(
+    mean_abundance = round(mean_abundance, 2)
+  )
+
+taxa_hierarchy_table %>% 
+  kbl(
+    col.names = c("Kingdom", "Phylum", "Class", "Mean Abundance (%)"),
+    caption = "Mean Relative Abundance by Kingdom, Phylum, and Class",
+    format = "html",
+    digits = 2,
+    booktabs = TRUE
+  ) %>% 
+  kable_styling(full_width = FALSE) %>% 
+  column_spec(1, bold = TRUE) %>% 
+  column_spec(2, bold = TRUE) %>% 
+  collapse_rows(columns = 1:2, valign = "top")
+
+# --- Kingdom to Order Version ---
+taxa_hierarchy_table_order <- taxa_df %>%
+  group_by(kingdom, phylum, tax_class, order) %>%
+  summarize(
+    mean_abundance = sum(mean_abundance, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(kingdom, phylum, tax_class, desc(mean_abundance)) %>%
+  mutate(mean_abundance = round(mean_abundance, 2)) %>%
+  # optional: slightly indent child-level labels to improve visual hierarchy
+  mutate(
+    order = paste0("   ", order),
+    tax_class = paste0("  ", tax_class)
+  )
+
+taxa_hierarchy_table_order %>%
+  kbl(
+    col.names = c("Kingdom", "Phylum", "Class", "Order", "Mean Abundance (%)"),
+    caption = "Mean Relative Abundance by Kingdom → Phylum → Class → Order",
+    format = "html",
+    digits = 2
+  ) %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(1, bold = TRUE) %>%
+  column_spec(2, bold = TRUE) %>%
+  column_spec(3, bold = TRUE) %>%
+  collapse_rows(columns = 1:3, valign = "top")
+```
+
+# PCoA
+
+## Assumptions
+
+## Analysis & Plotting
+
+PCoA with Bray–Curtis is a standard ecological approach for relative abundance data.
+
+```{r}
+#| label: PCoA with Bray–Curtis (Set-up)
+# ---
+
+# Run PCoA and store results inside object
+dist_taxa <- vegdist(t(mat_taxa), method = "bray")
+pcoa_taxa <- cmdscale(dist_taxa, k = 2, eig = TRUE)
+
+# Build plotting data frame
+meta_taxa <- as.data.frame(colData(taxa))
+
+df_pcoa_t <- cbind(
+  meta_taxa,
+  PC1 = pcoa_taxa$points[, 1],
+  PC2 = pcoa_taxa$points[, 2]
+)
+
+# Approx % variance explained (Bray–Curtis is non-Euclidean, so we use positive eigenvalues only)
+eig_vals <- pcoa_taxa$eig
+var_explained <- eig_vals / sum(eig_vals[eig_vals > 0])
+```
+
+```{r}
+#| label: PCoA with Bray–Curtis (Plots)
+#| fig-width: 9
+#| fig-height: 5
+# Plots ---
+df_pcoa_t %>% 
+#  filter(disease_class %in% c("HC", "CRC", "PA")) %>%  # Comment out to remove filter  
+  ggplot(aes(PC1, PC2, color = disease_class)) +
+  geom_point(alpha = 0.6) +
+#  stat_ellipse(level = 0.95) + # comment out to remove ellipses
+  facet_wrap(~study_name) + #comment out to overlay
+  scale_color_manual(values = progression_colors, 
+                     name = progression_legend_title) +
+  theme_bw() +
+  labs(title = "PCoA (Bray–Curtis) of Taxonomic Data, Colored by CRC Progression Classifier",
+       x = paste0("PCoA1 (", round(var_explained[1] * 100, 1), "%)"),
+       y = paste0("PCoA2 (", round(var_explained[2] * 100, 1), "%)")
+  )
+
+ggplot(df_pcoa_t, aes(PC1, PC2, color = study_name)) +
+  geom_point(alpha = 0.6) +
+#  stat_ellipse(level = 0.95) + # comment out to remove ellipses
+#  facet_wrap(~study_name) + #comment out to overlay
+  theme_bw() +
+  labs(title = "PCoA (Bray–Curtis) Colored by Study", 
+       x = paste0("PCoA1 (", round(var_explained[1] * 100, 1), "%)"),
+       y = paste0("PCoA2 (", round(var_explained[2] * 100, 1), "%)")
+  )
+```
+
+### PERMANOVA Results
+
+```{r}
+#| label: Taxanomic PERMANOVA Results
+# ---
+
+#PERMANOVA (quantify separation)
+adonis2(dist_taxa ~ disease_class, data = meta_taxa) # Gives R2 value for disease effect
+adonis2(dist_taxa ~ study_name, data = meta_taxa) # Gives R2 value for study effect
+```
+
+# 

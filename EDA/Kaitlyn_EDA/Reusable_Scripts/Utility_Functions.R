@@ -1,7 +1,7 @@
 ################################################################################
 # Functions / Helpers
 #####################
-library(mia)  # for mergeData
+library(curatedMetagenomicData)  # for mergeData
 library(SummarizedExperiment)
 
 trim_or_null <- function(s) { 
@@ -23,7 +23,7 @@ merge_studies <- function(nested, type) {
   # extracts the objects for one type, objs becomes a list with one element per study
   objs <- objs[!vapply(objs, is.null, logical(1))] 
   # removes missing entries, returns logical TRUE/FALSE vector, that's flipped to drop nulls
-  mergeData(objs)
+  curatedMetagenomicData::mergeData(objs)
 }
 
 eda_overview_table <- function(df) {
