@@ -8,10 +8,8 @@ format: html
 ```{r}
 #| label: Setup
 # ---
-source(here::here("EDA", "Kaitlyn_EDA", "Wet_Runs.R"))
 source(here::here("EDA", "project_settings.R"))
 source(here::here("EDA", "Kaitlyn_EDA", "Reusable_Scripts", "Utility_Functions.R"))
-#variable <- read.csv("~/data/courses/class_lsc585spring2026_ndixit5/Therayess/")
 
 suppressPackageStartupMessages({
   library(ggplot2)
