@@ -1,5 +1,5 @@
 ##############################################
-# Build one combined dataframe for all studies
+# Build one combined data frame for all studies
 ##############################################
 library(SummarizedExperiment)
 library(dplyr)
