@@ -228,7 +228,8 @@ rf_model2 <- randomForest(
 
 pred2 <- predict(rf_model2, X_test)
 confusionMatrix(pred2, y_test)
-
+#This model = best overall accuracy. Great for HC and CRC 
+#Weak for PA and Other
 
 #-------------------------------
 # building upon model 3 for improvement
@@ -245,12 +246,19 @@ rf_model3 <- randomForest(
 
 pred3 <- predict(rf_model3, X_test)
 confusionMatrix(pred3, y_test)
+#This model produces better early disease detection but lower accuracy at 56.7%
+#its better for PA detection and other class detection (more fair across classes)
 
 
+#Saving the current two best models! 
+rf_model2  # best accuracy
+rf_model3  # best balance
 
-
-
-
+##############################################
+# Now extract important features from model 2
+##############################################
+importance2<- importance(rf_model2)
+varImpPlot(rf_model2)
 
 
 
