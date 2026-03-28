@@ -30,7 +30,7 @@ range(mat, na.rm = TRUE)
 # Merging nested data → this will be important for LODO!!
 
 # --- To merge from the nested data  ---
-library(mia)  # for mergeData
+library(curatedMetagenomicData)  # for mergeData
 library(SummarizedExperiment)
 
 merge_studies <- function(nested, type) {

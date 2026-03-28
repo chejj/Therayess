@@ -46,7 +46,8 @@ dim(test_df_small)
 
 # Remove metadata columns you do not want as predictors
 rf_input <- test_df_small %>% 
-  filter(disease_class %in% c("HC", "PA", "CRC", "Other")) %>% 
+  filter(disease_class %in% c("HC", "PA", "CRC", "Other", "PA+", "CRC+")) %>% 
+  filter(country == "JPN") %>% 
   select(-study_name, -study_condition, -non_westernized, -sequencing_platform, -PMID, -curator)
 
 rf_input <- test_df_small %>%
