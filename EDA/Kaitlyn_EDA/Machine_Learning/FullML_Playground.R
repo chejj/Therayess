@@ -5,7 +5,7 @@ library(curatedMetagenomicData)  # for mergeData
 library(dplyr)
 library(ggplot2)
 library(pROC)
-################################################################################
+######PARAMETERS################################################################
 params <- list(
   target_test_pct = 0.3,
   prev_threshold = 0.00001,
@@ -13,23 +13,33 @@ params <- list(
   mtry_fraction = 0.01,
   min_node_size = 5,
   num_threads = 8,
-  class_keep = c("HC", "PA", "CRC"),
-  study_drop = c("HMP_2012"), 
+  class_keep = c(
+    # "HC", 
+    # "PA", 
+    # "CRC", 
+    # "Other", 
+    # "PA+", 
+    # "CRC+", 
+    # "CRC-H", 
+    # "CRC-M", 
+    # "PA-M"
+    ), #options: "HC", "PA", "CRC", "Other", "PA+", "CRC+", "CRC-H", "CRC-M", "PA-M" 
+  study_drop = c(), 
   meta_drop = c(
     "RF_Class",
     "disease_class",
     "keep_study",
     "study_name",
-    "subject_id", 
-    "study_condition", 
-    "disease", 
-    "sequencing_platform", 
-    "DNA_extraction_kit", 
-    "PMID", 
-    "curator", 
-    "disease_stage", 
+    "subject_id",
+    "study_condition",
+    "disease",
+    "sequencing_platform",
+    "DNA_extraction_kit",
+    "PMID",
+    "curator",
+    "disease_stage",
     "disease_location"
-  ), 
+  ),
   meta_completeness = 0.90
 )
 ################################################################################
