@@ -1,14 +1,5 @@
-#######################################################
-# Start to combine studies into one matrix for analysis
-#######################################################
-#----------------
-#Handle batch effects
-#-----------------  
-#batch effect correction
-#library(sva)
-#combat_data <- ComBat(dat = as.matrix(log_data), batch = metadata$study)
-
-
+#This is my fave model all chopped up and what not but if we run
+# this whole thing it works lol 
 
 #---------------------------------------------
 # Begin with creating a matrix for each study 
@@ -109,7 +100,7 @@ dim(combined_matrix_filtered)
 #what percent of patients have this feature present
 prevalence_filter <- function(mat, threshold = 0.1) {
   prev <- rowSums(mat > 0) / ncol(mat)
-#keep only features that appear in at least 10% of patients
+  #keep only features that appear in at least 10% of patients
   mat[prev >= threshold, , drop = FALSE]
 }
 
@@ -133,7 +124,7 @@ labels <- droplevels(as.factor(metadata_filtered$disease_class))
 table(labels)
 
 #prep data for model bc random forest expects
-  #rows = samples and columns = features
+#rows = samples and columns = features
 X <- t(log_data)
 y <- labels
 
@@ -155,47 +146,12 @@ y_test  <- y[-trainIndex]
 length(y_train)
 length(y_test)
 
-####################################
-#fit random forest model!!!
-####################################
-rf_model <- randomForest(
-  x = X_train,
-  y = y_train,
-  ntree = 500,
-  importance = TRUE
-)
-
-print(rf_model)
-
-#evaluate on this test set
-pred <- predict(rf_model, X_test)
-
-confusionMatrix(pred, y_test)
-
-
-##########################
-#RF test model 2
-###########################
 #change focus of model to treat all class sizes equally instead of focusing on HC and CRC
 class_sizes <- table(y_train)
 class_sizes
 
 min_class <- min(class_sizes[class_sizes > 0])
 
-rf_model_balanced <- randomForest(
-  x = X_train,
-  y = y_train,
-  ntree = 200,
-  sampsize = rep(min_class, length(class_sizes)),
-  importance = FALSE
-)
-
-#now evaluate
-pred_bal <- predict(rf_model_balanced, X_test)
-confusionMatrix(pred_bal, y_test)
-
-##########################
-#Third test model (middle-ground)
 ##########################
 metadata_filtered$label2 <- dplyr::case_when(
   metadata_filtered$disease_class == "HC" ~ "HC",
@@ -217,51 +173,9 @@ X_test  <- X[-trainIndex, ]
 y_train <- y2[trainIndex]
 y_test  <- y2[-trainIndex]
 
-rf_model2 <- randomForest(
-  x = X_train,
-  y = y_train,
-  ntree = 200,
-  importance = FALSE
-)
-
-pred2 <- predict(rf_model2, X_test)
-confusionMatrix(pred2, y_test)
-#This model = best overall accuracy. Great for HC and CRC 
-#Weak for PA and Other
-
-#-------------------------------
-# building upon model 3 for improvement
-#--------------------------------------
 class_sizes <- table(y_train)
 min_class <- min(class_sizes)
 
-rf_model3 <- randomForest(
-  x = X_train,
-  y = y_train,
-  ntree = 200,
-  sampsize = rep(min_class, length(class_sizes))
-)
-
-pred3 <- predict(rf_model3, X_test)
-confusionMatrix(pred3, y_test)
-#This model produces better early disease detection but lower accuracy at 56.7%
-#its better for PA detection and other class detection (more fair across classes)
-
-
-#Saving the current two best models! 
-rf_model2  # best accuracy
-rf_model3  # best balance
-
-##############################################
-# Now extract important features from model 2
-##############################################
-importance2<- importance(rf_model2)
-varImpPlot(rf_model2)
-
-
-##########################################
-# Scale up  
-##########################################
 rf_model4 <- randomForest(
   x = X_train,
   y = y_train,
@@ -293,4 +207,5 @@ ggplot(df, aes(x = Class, y = Sensitivity, fill = Class)) +
   ylim(0, 1) +
   ggtitle("Per-Class Sensitivity") +
   theme_minimal()
+
 
