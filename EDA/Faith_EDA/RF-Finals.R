@@ -223,8 +223,57 @@ length(y_train)
 length(y_test)
 
 
+#Previous RF models trying again. 
+metadata_filtered$label2 <- dplyr::case_when(
+  metadata_filtered$disease_class == "HC" ~ "HC",
+  metadata_filtered$disease_class %in% c("PA", "PA+") ~ "PA",
+  metadata_filtered$disease_class %in% c("CRC", "CRC+", "CRC-H") ~ "CRC",
+  metadata_filtered$disease_class == "Other" ~ "Other"
+)
 
+table(metadata_filtered$label2)
 
+#rebuild Y
+y2 <- droplevels(as.factor(metadata_filtered$label2))
+
+#re-split + model 
+set.seed(42)
+trainIndex <- createDataPartition(y2, p = 0.8, list = FALSE)
+
+X_train <- X[trainIndex, ]
+X_test  <- X[-trainIndex, ]
+y_train <- y2[trainIndex]
+y_test  <- y2[-trainIndex]
+
+rf_model2 <- randomForest(
+  x = X_train,
+  y = y_train,
+  ntree = 200,
+  importance = FALSE
+)
+
+pred2 <- predict(rf_model2, X_test)
+confusionMatrix(pred2, y_test)
+#This model = best overall accuracy. Great for CRC, okay for HC
+#PA completely missed and other ignored
+
+#-------------------------------
+# building upon model 3 for improvement
+#--------------------------------------
+class_sizes <- table(y_train)
+min_class <- min(class_sizes)
+
+rf_model3 <- randomForest(
+  x = X_train,
+  y = y_train,
+  ntree = 200,
+  sampsize = rep(min_class, length(class_sizes))
+)
+
+pred3 <- predict(rf_model3, X_test)
+confusionMatrix(pred3, y_test)
+#This model produces better early disease detection but lower accuracy at 51.7%
+#Worse accuracy but much more balanced. 
 
 
 

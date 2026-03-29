@@ -15,6 +15,9 @@
 #---------------------------------------------
 library(SummarizedExperiment)
 library(TreeSummarizedExperiment)
+library(randomForest)
+library(caret)
+
 
 build_combined_features <- function(study) {
   # Extract matrices
@@ -43,6 +46,7 @@ build_combined_features <- function(study) {
   
   return(combined_mat)
 }
+
 
 #------------------------
 #Now apply to all studies 
@@ -116,6 +120,7 @@ dim(metadata)
 metadata_filtered <- metadata[!metadata$disease_class %in% c("CRC-M", "PA-M"), ]
 
 table(metadata_filtered$disease_class)
+
 #Filter log data to match the removed/filtered metadata_filtered
 log_data_filtered <- log_data[, rownames(metadata_filtered), drop = FALSE]
 dim(log_data_filtered)
@@ -137,8 +142,6 @@ length(y)
 #---------------------
 # run test train split
 #----------------------
-library(caret)
-
 set.seed(42)
 
 trainIndex <- createDataPartition(y, p = 0.8, list = FALSE)
@@ -154,8 +157,6 @@ length(y_test)
 ####################################
 #fit random forest model!!!
 ####################################
-library(randomForest)
-
 set.seed(42)
 
 rf_model <- randomForest(
@@ -261,8 +262,15 @@ importance2<- importance(rf_model2)
 varImpPlot(rf_model2)
 
 
-
-
-
-
+##########################################
+# Scale up  
+##########################################
+rf_model4 <- randomForest(
+  x = X_train,
+  y = y_train,
+  ntree = 500,
+  sampsize = rep(min_class, length(class_sizes))
+)
+pred4 <- predict(rf_model4, X_test)
+confusionMatrix(pred4, y_test)
 
