@@ -1,14 +1,5 @@
-#######################################################
-# Start to combine studies into one matrix for analysis
-#######################################################
-#----------------
-#Handle batch effects
-#-----------------  
-#batch effect correction
-#library(sva)
-#combat_data <- ComBat(dat = as.matrix(log_data), batch = metadata$study)
-
-
+#This is my fave model all chopped up and what not but if we run
+# this whole thing it works lol 
 
 #---------------------------------------------
 # Begin with creating a matrix for each study 
@@ -19,7 +10,8 @@ library(randomForest)
 library(caret)
 library(ggplot2)
 library(dplyr)
-
+library(tidyr)
+library(pROC)
 
 build_combined_features <- function(study) {
   # Extract matrices
@@ -70,7 +62,8 @@ combined_matrix <- do.call(cbind, combined_study_list_intersection)
 dim(combined_matrix)
 #Check unique sample IDs
 any(duplicated(colnames(combined_matrix)))
-
+#Check unique subject IDs
+any(duplicated(metadata_filtered$subject_id))
 #---------------------
 # Build metadata table
 #---------------------
@@ -109,7 +102,7 @@ dim(combined_matrix_filtered)
 #what percent of patients have this feature present
 prevalence_filter <- function(mat, threshold = 0.1) {
   prev <- rowSums(mat > 0) / ncol(mat)
-#keep only features that appear in at least 10% of patients
+  #keep only features that appear in at least 10% of patients
   mat[prev >= threshold, , drop = FALSE]
 }
 
@@ -133,69 +126,13 @@ labels <- droplevels(as.factor(metadata_filtered$disease_class))
 table(labels)
 
 #prep data for model bc random forest expects
-  #rows = samples and columns = features
+#rows = samples and columns = features
 X <- t(log_data)
 y <- labels
 
 dim(X)
 length(y)
 
-#---------------------
-# run test train split
-#----------------------
-set.seed(42)
-
-trainIndex <- createDataPartition(y, p = 0.8, list = FALSE)
-
-X_train <- X[trainIndex, ]
-X_test  <- X[-trainIndex, ]
-y_train <- y[trainIndex]
-y_test  <- y[-trainIndex]
-
-length(y_train)
-length(y_test)
-
-####################################
-#fit random forest model!!!
-####################################
-rf_model <- randomForest(
-  x = X_train,
-  y = y_train,
-  ntree = 500,
-  importance = TRUE
-)
-
-print(rf_model)
-
-#evaluate on this test set
-pred <- predict(rf_model, X_test)
-
-confusionMatrix(pred, y_test)
-
-
-##########################
-#RF test model 2
-###########################
-#change focus of model to treat all class sizes equally instead of focusing on HC and CRC
-class_sizes <- table(y_train)
-class_sizes
-
-min_class <- min(class_sizes[class_sizes > 0])
-
-rf_model_balanced <- randomForest(
-  x = X_train,
-  y = y_train,
-  ntree = 200,
-  sampsize = rep(min_class, length(class_sizes)),
-  importance = FALSE
-)
-
-#now evaluate
-pred_bal <- predict(rf_model_balanced, X_test)
-confusionMatrix(pred_bal, y_test)
-
-##########################
-#Third test model (middle-ground)
 ##########################
 metadata_filtered$label2 <- dplyr::case_when(
   metadata_filtered$disease_class == "HC" ~ "HC",
@@ -209,7 +146,11 @@ table(metadata_filtered$label2)
 #rebuild Y
 y2 <- droplevels(as.factor(metadata_filtered$label2))
 
-#re-split + model 
+#---------------------
+# run test train split
+#----------------------
+set.seed(42)
+
 trainIndex <- createDataPartition(y2, p = 0.8, list = FALSE)
 
 X_train <- X[trainIndex, ]
@@ -217,51 +158,16 @@ X_test  <- X[-trainIndex, ]
 y_train <- y2[trainIndex]
 y_test  <- y2[-trainIndex]
 
-rf_model2 <- randomForest(
-  x = X_train,
-  y = y_train,
-  ntree = 200,
-  importance = FALSE
-)
+length(y_train)
+length(y_test)
 
-pred2 <- predict(rf_model2, X_test)
-confusionMatrix(pred2, y_test)
-#This model = best overall accuracy. Great for HC and CRC 
-#Weak for PA and Other
-
-#-------------------------------
-# building upon model 3 for improvement
-#--------------------------------------
+#change focus of model to treat all class sizes equally instead of focusing on HC and CRC
 class_sizes <- table(y_train)
-min_class <- min(class_sizes)
+class_sizes
 
-rf_model3 <- randomForest(
-  x = X_train,
-  y = y_train,
-  ntree = 200,
-  sampsize = rep(min_class, length(class_sizes))
-)
-
-pred3 <- predict(rf_model3, X_test)
-confusionMatrix(pred3, y_test)
-#This model produces better early disease detection but lower accuracy at 56.7%
-#its better for PA detection and other class detection (more fair across classes)
+min_class <- min(class_sizes[class_sizes > 0])
 
 
-#Saving the current two best models! 
-rf_model2  # best accuracy
-rf_model3  # best balance
-
-##############################################
-# Now extract important features from model 2
-##############################################
-importance2<- importance(rf_model2)
-varImpPlot(rf_model2)
-
-
-##########################################
-# Scale up  
-##########################################
 rf_model4 <- randomForest(
   x = X_train,
   y = y_train,
@@ -270,6 +176,28 @@ rf_model4 <- randomForest(
 )
 pred_final <- predict(rf_model4, X_test)
 confusionMatrix(pred_final, y_test)
+#--------------------------------------------
+#create a clean table for feature importance 
+#--------------------------------------------
+importance_mat <- importance(rf_model4)
+feature_importance <- data.frame(
+  Feature = rownames(importance_mat),
+  MeanDecreaseGini = importance_mat[, "MeanDecreaseGini"]
+)
+
+# sort by importance
+feature_importance <- feature_importance[order(-feature_importance$MeanDecreaseGini), ]
+head(feature_importance, 20)
+top_features <- feature_importance[1:20, ]
+top_features
+#create a little plot 
+library(ggplot2)
+
+ggplot(top_features, aes(x = reorder(Feature, MeanDecreaseGini), y = MeanDecreaseGini)) +
+  geom_col(fill = "pink") +
+  coord_flip() +
+  ggtitle("Top 20 Important Features") +
+  theme_minimal()
 
 #Lets see those results!!!!
 cm <- confusionMatrix(pred_final, y_test)
@@ -280,17 +208,131 @@ df$Class <- gsub("Class: ", "", rownames(df))
 df$F1 <- 2 * (df$`Pos Pred Value` * df$Sensitivity) /
   (df$`Pos Pred Value` + df$Sensitivity)
 
-# Plot 1
+# Plot 1: Per class F1
 ggplot(df, aes(x = Class, y = F1, fill = Class)) +
   geom_col() +
   ylim(0, 1) +
-  ggtitle("Per-Class F1 Score") +
+  ggtitle("Per Class F1 Score") +
   theme_minimal()
 
-# Plot 2
+# Plot 2: Per class sensitivity
 ggplot(df, aes(x = Class, y = Sensitivity, fill = Class)) +
   geom_col() +
   ylim(0, 1) +
-  ggtitle("Per-Class Sensitivity") +
+  ggtitle("Per Class Sensitivity") +
   theme_minimal()
 
+#Plot 3: Per class precision
+ggplot(df, aes(x = Class, y = `Pos Pred Value`, fill = Class)) +
+  geom_col() +
+  ylim(0, 1) +
+  ggtitle("Per Class Precision") +
+  theme_minimal()
+
+#Plot 4: overall accuracy 
+acc_df <- data.frame(
+  Metric = "Accuracy",
+  Value = as.numeric(cm$overall["Accuracy"])
+)
+
+ggplot(acc_df, aes(x = Metric, y = Value)) +
+  geom_col(fill = "steelblue") +
+  ylim(0, 1) +
+  ggtitle("Overall Accuracy") +
+  theme_minimal()
+
+#Plot 5: confusion matrix heatmap 
+cm_df <- as.data.frame(cm$table)
+
+ggplot(cm_df, aes(x = Reference, y = Prediction, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq)) +
+  ggtitle("Confusion Matrix") +
+  theme_minimal()
+
+#Plot 6: Overfitting Check 
+train_pred <- predict(rf_model4, X_train)
+
+overfit_df <- data.frame(
+  Set = c("Train", "Test"),
+  Accuracy = c(
+    mean(train_pred == y_train),
+    mean(pred_final == y_test)
+  )
+)
+
+ggplot(overfit_df, aes(x = Set, y = Accuracy, fill = Set)) +
+  geom_col() +
+  ylim(0, 1) +
+  ggtitle("Overfitting Check") +
+  theme_minimal()
+
+#ROC/AUC
+prob <- predict(rf_model4, X_test, type = "prob")
+
+auc_df <- data.frame(
+  Class = colnames(prob),
+  AUC = sapply(colnames(prob), function(cl) {
+    roc(as.numeric(y_test == cl), prob[, cl])$auc
+  })
+)
+
+ggplot(auc_df, aes(x = Class, y = AUC, fill = Class)) +
+  geom_col() +
+  ylim(0, 1) +
+  ggtitle("ROC/AUC by Class") +
+  theme_minimal()
+
+########################################
+#LODO Model
+########################################
+# make sure 4-class labels exist
+metadata_filtered$label2 <- dplyr::case_when(
+  metadata_filtered$disease_class == "HC" ~ "HC",
+  metadata_filtered$disease_class %in% c("PA", "PA+") ~ "PA",
+  metadata_filtered$disease_class %in% c("CRC", "CRC+") ~ "CRC",
+  metadata_filtered$disease_class == "Other" ~ "Other"
+)
+
+y2 <- droplevels(as.factor(metadata_filtered$label2))
+
+# check studies being used
+table(metadata_filtered$study_name)
+
+studies <- unique(metadata_filtered$study_name)
+
+lodo_results <- lapply(studies, function(test_study) {
+  
+  test_idx  <- which(metadata_filtered$study_name == test_study)
+  train_idx <- which(metadata_filtered$study_name != test_study)
+  
+  X_train_lodo <- X[train_idx, ]
+  X_test_lodo  <- X[test_idx, ]
+  y_train_lodo <- y2[train_idx]
+  y_test_lodo  <- y2[test_idx]
+  
+  class_sizes_lodo <- table(y_train_lodo)
+  min_class_lodo <- min(class_sizes_lodo)
+  
+  rf_lodo <- randomForest(
+    x = X_train_lodo,
+    y = y_train_lodo,
+    ntree = 500,
+    sampsize = rep(min_class_lodo, length(class_sizes_lodo))
+  )
+  
+  pred_lodo <- predict(rf_lodo, X_test_lodo)
+  cm_lodo <- confusionMatrix(pred_lodo, y_test_lodo)
+  
+  data.frame(
+    Study = test_study,
+    N_test = length(y_test_lodo),
+    Accuracy = as.numeric(cm_lodo$overall["Accuracy"]),
+    Kappa = as.numeric(cm_lodo$overall["Kappa"])
+  )
+})
+
+lodo_results <- do.call(rbind, lodo_results)
+lodo_results
+mean(lodo_results$Accuracy)
+mean(lodo_results$Kappa)
