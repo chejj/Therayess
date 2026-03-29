@@ -18,24 +18,26 @@ format:
       - \setkomafont{date}{\small}
 ---
 
-```{r, echo=FALSE}
+```{r}
 #| label: Setup
-source("Qualifying_Studies_List.R")
+#| echo: false
+#| message: false
 suppressPackageStartupMessages({
-  library(dplyr)
+  library(tidyverse)
   library(knitr)
   library(kableExtra)
   library(mosaic)
-  library(ggplot2)
   library(grid)
   library(gridExtra)
-  library(knitr)
   library(patchwork)
-  library(tidyr)
+  library(curatedMetagenomicData)
 })
 
+# Run and load any data files needed prior to running this file, since we are no longer using Qualifying_Studies_List.R
+merged_studies <- readRDS("Kaitlyn_EDA/data/merged_studies.rds")
+eda_meta_df <- as.data.frame(colData(merged_studies[["relative_abundance"]]))
+# from kaitlyn's Merged_Studies_EDA.R
 progression_order <- c(
-  "Other", 
   "HC",
   "PA",
   "PA+",
@@ -43,13 +45,15 @@ progression_order <- c(
   "CRC",
   "CRC+",
   "CRC-H",
-  "CRC-M"
+  "CRC-M", 
+  "Other"
 )
 
 progression_colors <- c(
   "HC" = "#539deb",
   "PA" = "#e4e85b",
   "PA+" = "#e8a25b",
+  "PA-M" = "#d4700d",
   "CRC" = "#cf1919",
   "CRC+" = "#8f0000",
   "CRC-M" = "#4d0404",
@@ -57,10 +61,7 @@ progression_colors <- c(
   "Other" = "#aaa3a3"
 )
 
-qualifying_studies <- qualifying_studies %>% 
-  mutate(
-    disease_class = factor(disease_class, levels = progression_order)
-  )
+progression_legend_title <- "CRC Progression\nClassifiers"
 ```
 
 ## 1 - Summary Tables
@@ -69,9 +70,11 @@ qualifying_studies <- qualifying_studies %>%
 
 ```{r}
 #| label: Overall Age Summary Statistics
+#| echo: false
+#| message: false
 # Stats Setup
 #############
-age_overall <- qualifying_studies %>% 
+age_overall <- eda_meta_df %>% 
   # Summary Stats
   # -------------
   summarize(
@@ -115,11 +118,13 @@ age_overall %>%
 
 ```{r}
 #| label: Age by Gender
+#| echo: false
+#| message: false
 # ---
 
 # Stats Setup
 #############
-age_x_gender <- qualifying_studies %>% 
+age_x_gender <- eda_meta_df %>% 
   group_by(gender) %>% 
   summarize(
     n = n(), 
@@ -152,9 +157,11 @@ age_x_gender %>%
 
 ```{r}
 #| label: Age by Decade Summary
+#| echo: false
+#| message: false
 # Stats Setup
 #############
-age_decade <- qualifying_studies %>% 
+age_decade <- eda_meta_df %>% 
   # Summary Stats
   # -------------
   group_by(age_decade) %>% 
@@ -181,10 +188,12 @@ age_decade %>%
 
 ```{r}
 #| label: Country Summary Statistics
+#| echo: false
+#| message: false
 
 # Count and Proportion
 ######################
-country_overall <- qualifying_studies %>% 
+country_overall <- eda_meta_df %>% 
   # Summary Stats
   # -------------
   group_by(country) %>% 
@@ -210,7 +219,7 @@ country_overall %>%
 
 # Country Classifier Count
 ##########################
-country_overall <- qualifying_studies %>% 
+country_overall <- eda_meta_df %>% 
   filter(!is.na(country)) %>%
   group_by(country, disease_class) %>% 
   summarise(n = n(), .groups = "drop") %>% 
@@ -234,10 +243,12 @@ country_overall %>%
 
 ```{r}
 #| label: Age Normality Check - QQ Plot
+#| echo: false
+#| message: false
 
 # QQPlot
 ########
-qualifying_studies %>% 
+eda_meta_df %>% 
   # Set Up
   # ------
 filter(!is.na(age)) %>%
@@ -260,7 +271,7 @@ labs(title = "QQ Plot of Age") +
 
 # Gendered Histogram
 ####################
-qualifying_studies %>%
+eda_meta_df %>%
   # Set Up
   # ------
   filter(!is.na(age), !is.na(gender)) %>%
@@ -283,10 +294,12 @@ qualifying_studies %>%
 #| fig-width: 14
 #| fig-height: 9
 #| fig-dpi: 500
+#| echo: false
+#| message: false
 # Barplot of age categories: Colored
 ####################################
 
-decade1 <- qualifying_studies %>% 
+decade1 <- eda_meta_df %>% 
   # Set Up 
   # ------ 
 filter (!is.na(age_decade)) %>% 
@@ -304,7 +317,7 @@ ggplot(aes(x=age_decade, fill = disease_class)) +
 
 # Proportion: Age Decade
 ###########################
-decade2 <- qualifying_studies %>%
+decade2 <- eda_meta_df %>%
   # Set Up
   # ------
 filter (!is.na(age_decade)) %>%
@@ -332,12 +345,14 @@ labs(title = "CRC Progression Proportion by Age Decade",
 #| fig-width: 14
 #| fig-height: 9
 #| fig-dpi: 500
+#| echo: false
+#| message: false
 # Diet ~~~~~~~~~~~~~~~~~~~~~
 ############################
 
 # Diet Counts
 #############
-diet1 <- qualifying_studies %>%
+diet1 <- eda_meta_df %>%
   # Set Up
   # ------
   filter(!is.na(diet)) %>%
@@ -359,7 +374,7 @@ diet1 <- qualifying_studies %>%
 
 # Diet Proportion
 #################
-diet2 <- qualifying_studies %>%
+diet2 <- eda_meta_df %>%
   # Set Up
   # ------
   filter(!is.na(diet)) %>%
@@ -390,6 +405,8 @@ diet2 <- qualifying_studies %>%
 #| fig-width: 14
 #| fig-height: 6
 #| fig-dpi: 500
+#| echo: false
+#| message: false
 # ---
 
 # Countries ~~~~~~~~~~~~~~~~
@@ -397,7 +414,7 @@ diet2 <- qualifying_studies %>%
 
 # Country Count
 ###############
-country1 <- qualifying_studies  %>% 
+country1 <- eda_meta_df  %>% 
   # Set Up
   # ------
   filter(!is.na(country)) %>%
@@ -420,7 +437,7 @@ country1 <- qualifying_studies  %>%
 
 # Country Fill
 ##############
-country2 <- qualifying_studies  %>% 
+country2 <- eda_meta_df  %>% 
   # Set Up
   # ------
   filter(!is.na(country)) %>%
@@ -444,7 +461,7 @@ country2 <- qualifying_studies  %>%
 
 # Countries Proportions
 #######################
-country3 <- qualifying_studies %>% 
+country3 <- eda_meta_df %>% 
   # Set Up
   # ------
   filter(!is.na(country)) %>%
@@ -502,9 +519,11 @@ country1 + country2 + country3 +
 
 ```{r}
 #| label: Contributors and CRC Progression Classifier Counts
+#| echo: false
+#| message: false
 # Bar Chart
 ###########
-contributor1 <- qualifying_studies %>%
+contributor1 <- eda_meta_df %>%
   # Plotting
   # --------
   ggplot(aes(x = reorder(study_name, study_name, 
@@ -525,7 +544,7 @@ contributor1 <- qualifying_studies %>%
 
 # Bar Chart by Study
 ####################
-contributor2 <- qualifying_studies %>%
+contributor2 <- eda_meta_df %>%
   # Plotting
   # --------
   ggplot(aes(x = reorder(study_name, study_name, 
@@ -546,7 +565,7 @@ contributor2 <- qualifying_studies %>%
 
 # Bar Chart of Total CRC Progression Class Proportions
 #########################################################
-class_count <- qualifying_studies %>%
+class_count <- eda_meta_df %>%
   # Plotting
   # --------
   ggplot(aes(x=disease_class, stat = "count", fill = disease_class)) +
@@ -574,8 +593,9 @@ class_count + (contributor1 / contributor2)  + plot_layout(guides = "collect") &
 
 ```{r}
 #| label: Gender Binomial Test
+#| message: false
 
-sex_counts <- table(qualifying_studies$gender)
+sex_counts <- table(eda_meta_df$gender)
 binom.test(sex_counts["male"],
            sum(sex_counts),
            p = 0.5) # assumes 50/50 split in population
@@ -585,8 +605,9 @@ binom.test(sex_counts["male"],
 
 ```{r}
 #| label: Age vs CRC Progression ANOVA
+#| message: false
 
-age_CRC_ANOVA <- qualifying_studies %>%
+age_CRC_ANOVA <- eda_meta_df %>%
   filter(!is.na(age)) 
 
 age_CRC_ANOVA2 <- aov(age ~ disease_class, data = age_CRC_ANOVA)
@@ -600,8 +621,9 @@ TukeyHSD(age_CRC_ANOVA2, conf.level=.95)
 
 ```{r}
 #| label: BMI vs CRC Progression ANOVA
+#| message: false
 
-bmi_CRC_ANOVA <- qualifying_studies %>%
+bmi_CRC_ANOVA <- eda_meta_df %>%
   filter(!is.na(BMI)) 
 
 bmi_CRC_ANOVA2 <- aov(BMI ~ disease_class, data = bmi_CRC_ANOVA)
@@ -615,20 +637,21 @@ TukeyHSD(bmi_CRC_ANOVA2, conf.level=.95)
 
 ```{r}
 #| label: LM to match faceted scatterplot
+#| message: false
 
-qualifying_studies$age_centered <- scale(
-  qualifying_studies$age,
+eda_meta_df$age_centered <- scale(
+  eda_meta_df$age,
   center = TRUE,
   scale = FALSE
 )
 
-qualifying_studies$disease_class <- relevel(
-  qualifying_studies$disease_class,
+eda_meta_df$disease_class <- relevel(
+  eda_meta_df$disease_class,
   ref = "HC" # Changed to refer to healthy control rather than "Other"
 )
 
 age_bmi_scatterplot_lm <- lm(BMI ~ age_centered * disease_class, 
-               data = qualifying_studies)
+               data = eda_meta_df)
 
 summary(age_bmi_scatterplot_lm)
 
@@ -659,11 +682,11 @@ A script used to determine what information was available on our qualifying stud
 #| eval: false
 
 # Run Qualifying Studies List
-source("./EDA/Qualifying_Studies_List.R")
+source("./EDA/eda_meta_df_List.R")
 
 # Studies available
 ###################
-studies <- qualifying_studies %>%
+studies <- eda_meta_df %>%
   distinct(study_name) %>%
   pull(study_name)
 print(studies)
@@ -691,7 +714,7 @@ The R chunk at the beginning of the file to allow for rendering of all plots and
 ```{r}
 #| label: Setup for EDA Document
 #| eval: false
-source("Qualifying_Studies_List.R")
+source("eda_meta_df_List.R")
 suppressPackageStartupMessages({
   library(tidyverse)
   library(knitr)
@@ -730,7 +753,7 @@ progression_colors <- c(
   "Other" = "#aaa3a3"
 )
 
-qualifying_studies <- qualifying_studies %>% 
+eda_meta_df <- eda_meta_df %>% 
   mutate(
     disease_class = factor(disease_class, levels = progression_order)
   )
