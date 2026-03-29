@@ -63,6 +63,7 @@ combined_study_list_intersection <- lapply(combined_study_list, function(mat) {
 
 combined_matrix <- do.call(cbind, combined_study_list_intersection)
 dim(combined_matrix)
+
 #Check unique sample IDs
 any(duplicated(colnames(combined_matrix)))
 
@@ -133,7 +134,6 @@ y <- labels
 
 dim(X)
 length(y)
-
 
 #---------------------
 # run test train split
