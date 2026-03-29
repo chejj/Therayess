@@ -17,6 +17,7 @@ library(SummarizedExperiment)
 library(TreeSummarizedExperiment)
 library(randomForest)
 library(caret)
+library(ggplot2)
 
 
 build_combined_features <- function(study) {
@@ -115,9 +116,9 @@ metadata <- bind_rows(metadata_list)
 dim(metadata)
 
 #--------------------------
-# remove CRC-M and PA-M
+# remove CRC-M and PA-M and CRC-H
 #--------------------------
-metadata_filtered <- metadata[!metadata$disease_class %in% c("CRC-M", "PA-M"), ]
+metadata_filtered <- metadata[!metadata$disease_class %in% c("CRC-M", "PA-M", "CRC-H"), ]
 
 table(metadata_filtered$disease_class)
 
@@ -202,7 +203,7 @@ confusionMatrix(pred_bal, y_test)
 metadata_filtered$label2 <- dplyr::case_when(
   metadata_filtered$disease_class == "HC" ~ "HC",
   metadata_filtered$disease_class %in% c("PA", "PA+") ~ "PA",
-  metadata_filtered$disease_class %in% c("CRC", "CRC+", "CRC-H") ~ "CRC",
+  metadata_filtered$disease_class %in% c("CRC", "CRC+") ~ "CRC",
   metadata_filtered$disease_class == "Other" ~ "Other"
 )
 
@@ -271,6 +272,29 @@ rf_model4 <- randomForest(
   ntree = 500,
   sampsize = rep(min_class, length(class_sizes))
 )
-pred4 <- predict(rf_model4, X_test)
-confusionMatrix(pred4, y_test)
+pred_final <- predict(rf_model4, X_test)
+confusionMatrix(pred_final, y_test)
+
+#Lets see those results!!!!
+cm <- confusionMatrix(pred_final, y_test)
+df <- as.data.frame(cm$byClass)
+
+df$Class <- gsub("Class: ", "", rownames(df))
+
+df$F1 <- 2 * (df$`Pos Pred Value` * df$Sensitivity) /
+  (df$`Pos Pred Value` + df$Sensitivity)
+
+# Plot 1
+ggplot(df, aes(x = Class, y = F1, fill = Class)) +
+  geom_col() +
+  ylim(0, 1) +
+  ggtitle("Per-Class F1 Score") +
+  theme_minimal()
+
+# Plot 2
+ggplot(df, aes(x = Class, y = Sensitivity, fill = Class)) +
+  geom_col() +
+  ylim(0, 1) +
+  ggtitle("Per-Class Sensitivity") +
+  theme_minimal()
 
