@@ -1,108 +1,6 @@
-library("ranger")
-library(caret)
-library(SummarizedExperiment)
-library(curatedMetagenomicData)  # for mergeData
-library(dplyr)
-library(ggplot2)
-library(pROC)
-######PARAMETERS################################################################
-params <- list(
-  target_test_pct = 0.3,
-  prev_threshold = 0.00001,
-  num_trees = 500,
-  mtry_fraction = 0.01,
-  min_node_size = 5,
-  num_threads = 8,
-  class_keep = c(
-    # "HC", 
-    # "PA", 
-    # "CRC", 
-    # "Other", 
-    # "PA+", 
-    # "CRC+", 
-    # "CRC-H", 
-    # "CRC-M", 
-    # "PA-M"
-    ), #options: "HC", "PA", "CRC", "Other", "PA+", "CRC+", "CRC-H", "CRC-M", "PA-M" 
-  study_drop = c(), 
-  meta_drop = c(
-    "RF_Class",
-    "disease_class",
-    "keep_study",
-    "study_name",
-    "subject_id",
-    "study_condition",
-    "disease",
-    "sequencing_platform",
-    "DNA_extraction_kit",
-    "PMID",
-    "curator",
-    "disease_stage",
-    "disease_location"
-  ),
-  meta_completeness = 0.90
-)
-################################################################################
-# --- OUTLINE / PLAN: ---
-# Step 1: Merge studies into one nested list by type
-# Step 2: Pull information/assay by type
-# Step 3: Transpose so rows = samples, cols = features and check sample alignment
-# Step 4: Prep for Modeling
-  # Step 4.1: Filtering Disease Class and Studies
-  # Step 4.2: Apply across all metadata and feature tables
-# Step 5: 70/30 study-aware train/test split to avoid leakage
-  # Step 5.1: Feature Transformations 
-    # NOTE: Fit on training set, apply to test set after.
-    # Prevalence & Variance filtering
-    # Normalization if needed
-  # Step 5.2: Fit Random Forest 
-    # num.threads to same as HPC core
-    # Class imbalance handling (class weights in ranger)
-    # Cross validation for hyperparameter tuning
-    # OOB Error for internal performance estimate
-  # Step 5.3: Check Random Forest final model on test set
-    # Step 5.3.1: Per Class F1-Score
-    # Step 5.3.2: AUC-ROC Curve (one-vs-rest, multiclass)
-    # Step 5.3.3: Confusion Matrix
-  # Step 5.4: Inspect Feature Importance
-# Step 6: Repeat Step 5 but with Leave-One-Study-Out as gold standard
-################################################################################
-################################################################################
-# --- Step 1: Merge studies into one nested list by type 
-types <- c("relative_abundance", "pathway_coverage", "pathway_abundance")
+64
+### --- Step 3: Transpose so rows = samples, cols = features####################
 
-merged_studies <- lapply(types, function(type) {
-  objs <- lapply(CRC_progression_studies, `[[`, type)
-  objs <- objs[!vapply(objs, is.null, logical(1))]
-  mergeData(objs)
-})
-# Name the list
-names(merged_studies) <- types
-
-################################################################################
-################################################################################
-# --- Step 2: Pull information/assay by type
-studies_taxa <- assay(merged_studies[["relative_abundance"]])
-studies_path_abund <- assay(merged_studies[["pathway_abundance"]])
-studies_path_cov <- assay(merged_studies[["pathway_coverage"]])
-studies_meta_df <- as.data.frame(colData(merged_studies[["relative_abundance"]]))
-
-# QUALITY CHECK: Confirm identical sample IDs/order across assays for metadata pull
-if (identical(
-  colnames(merged_studies[["relative_abundance"]]),
-  colnames(merged_studies[["pathway_abundance"]])
-) && identical(
-  colnames(merged_studies[["relative_abundance"]]),
-  colnames(merged_studies[["pathway_coverage"]])
-)) {
-  message("✅ Sample IDs/order are identical across all three merged objects.")
-} else {
-  message("❌ Sample IDs/order are NOT identical across all three merged objects.")
-}
-
-################################################################################
-################################################################################
-# --- Step 3: Transpose so rows = samples, cols = features
 # This is needed because RF expects rows to be samples, but SEs are not set up this way
 taxa_df <- as.data.frame(t(studies_taxa))
 path_abund_df <- as.data.frame(t(studies_path_abund))
@@ -119,10 +17,31 @@ if (
   stop("❌ Sample alignment mismatch between metadata and one or more feature tables.")
 }
 
-################################################################################
-################################################################################
-# --- Step 4: Prepare for modeling
-# Step 4.1: Disease class and study filtering
+# Step 3.1: Remove duplicate subjects to reduce pseudoreplication ---------
+
+# Keep the first sample encountered for each subject_id
+keep_samples <- rownames(studies_meta_df)[!duplicated(studies_meta_df$subject_id)]
+
+# Apply to metadata and all feature tables
+studies_meta_df <- studies_meta_df[keep_samples, , drop = FALSE]
+taxa_df         <- taxa_df[keep_samples, , drop = FALSE]
+path_abund_df   <- path_abund_df[keep_samples, , drop = FALSE]
+path_cov_df     <- path_cov_df[keep_samples, , drop = FALSE]
+
+# QUALITY CHECK
+if (any(duplicated(studies_meta_df$subject_id))) {
+  stop("❌ Duplicate subject IDs still remain after filtering.")
+} else {
+  message("✅ Duplicate subject IDs removed.")
+}
+if (is.null(rownames(studies_meta_df))) {
+  stop("❌ Rownames were lost after subject filtering.")
+} else {
+  message("✅ Rownames preserved after subject filtering.")
+}
+
+### --- Step 4: Prepare for modeling ###########################################
+# Step 4.1: Disease class and study filtering ----------------------------------
 # choose disease classes to keep for ML model so to not influence the split (now done in params)
 
 # Create modeling columns to avoid removing original columns
@@ -147,8 +66,7 @@ keep_samples <- rownames(studies_meta_df)[
     studies_meta_df$keep_study
 ]
 
-################################################################################
-# Step 4.2: Apply across all metadata and feature tables
+# Step 4.2: Apply across all metadata and feature tables -----------------------
 studies_meta_df <- studies_meta_df[keep_samples, , drop = FALSE]
 taxa_df         <- taxa_df[keep_samples, , drop = FALSE]
 path_abund_df   <- path_abund_df[keep_samples, , drop = FALSE]
@@ -164,16 +82,14 @@ taxa_df       <- make_safe_names(taxa_df, "taxa__")
 path_abund_df <- make_safe_names(path_abund_df, "pabund__")
 path_cov_df   <- make_safe_names(path_cov_df, "pcov__")
 
-################################################################################
-################################################################################
-################################################################################
-# --- Step 5: 70/30 study-aware train/test split to avoid leakage
+
+### --- Step 5: 70/30 study-aware train/test split to avoid leakage#############
 # Split studies, not samples
 # we want to make sure that all classes chosen are represented in the test and train data
 # find another way to evenly split with good representation
 # createDataPartition() failed all attempts when using disease_class
 
-### OPTION: do this manually 
+### OPTION: do this manually
 set.seed(123) #allows random operations to be reproducible
 
 # Table for samples by study, ordered in descending order
@@ -188,7 +104,7 @@ study_sizes <- study_sizes[sample(nrow(study_sizes)), ]
 total_n <- sum(study_sizes$n) # Total samples across studies
 target_test_n <- params$target_test_pct * total_n # Target samples in TEST set
 
-# Initialization 
+# Initialization
 test_studies <- c()
 running_total <- 0
 
@@ -292,9 +208,8 @@ ggplot(dist_df, aes(x = Class, y = Proportion, fill = Set)) +
   theme_bw() +
   labs(title = "Class Distribution: Train vs Test")
 
-################################################################################
-# Step 5.1: Feature Transformations
-# A: METADATA~~~~~~~~~~~~~~~~~~~~
+# Step 5.1: Feature Transformations --------------------------------------------
+# A: METADATA ------------------------------------------------------------------
 # 1. Start from train/test metadata
 train_meta_x <- train_meta
 test_meta_x  <- test_meta
@@ -329,7 +244,7 @@ if (
 # Print summary
 message("Metadata features kept: ", ncol(train_meta_x))
 
-# B: TAXONOMY~~~~~~~~~~~~~~~~~~~~~
+# B: RELATIVE ABUNDANCE --------------------------------------------------------
 ## Keep biologically present features and statistically informative features, based only on training data.
 # 1. Start from train/test relative abundance
 train_taxa_X <- train_taxa
@@ -359,9 +274,16 @@ if (length(nzv) > 0) { # any near zero features found in TRAIN are removed from 
   test_taxa_filt  <- test_X_prev
 }
 
+# 4. Normalize + log transform (Percentile might be better)
+train_rel <- sweep(train_taxa_filt, 2, colSums(train_taxa_filt), "/")
+test_rel  <- sweep(test_taxa_filt, 2, colSums(test_taxa_filt), "/")
+
+train_taxa_filt <- log10(train_rel + 1e-6)
+test_taxa_filt  <- log10(test_rel + 1e-6)
+
 message("Relative Abundance Features Kept: ", ncol(train_taxa_filt))
 
-# C: PATHWAY ABUNDANCE ~~~~~~~~~~~~~~~~~~~~~
+# C: PATHWAY ABUNDANCE ---------------------------------------------------------
 # 1. Start from train/test pathway abundance
 train_pathab_X <- train_path_abund
 test_pathab_X  <- test_path_abund
@@ -389,6 +311,13 @@ if (length(nzv) > 0) { # any near zero features found in TRAIN are removed from 
   train_pathab_filt <- train_X_prev
   test_pathab_filt  <- test_X_prev
 }
+
+# 4. Normalize + log transform (Percentile might be better)
+train_rel <- sweep(train_pathab_filt, 2, colSums(train_pathab_filt), "/")
+test_rel  <- sweep(test_pathab_filt, 2, colSums(test_pathab_filt), "/")
+
+train_pathab_filt <- log10(train_rel + 1e-6)
+test_pathab_filt  <- log10(test_rel + 1e-6)
 
 message("Pathway Abundance Features Kept: ", ncol(train_pathab_filt))
 
@@ -424,11 +353,9 @@ if (length(nzv) > 0) { # any near zero features found in TRAIN are removed from 
 message("Pathway Coverage Features Kept: ", ncol(train_pathcov_filt))
 
 
-################################################################################
-# Step 5.2: Fit Random Forest
+# Step 5.2: Fit Random Forest --------------------------------------------------
 
 # 1. Model Input Preparation
-# ---------------------------
 train_X <- cbind(train_meta_x, train_taxa_filt, train_pathab_filt, train_pathcov_filt)
 test_X  <- cbind(test_meta_x,  test_taxa_filt,  test_pathab_filt,  test_pathcov_filt)
 
@@ -450,7 +377,6 @@ p <- ncol(train_df) - 1
 mtry_val <- max(1, ceiling(params$mtry_fraction * p))
   
 # 2. Model Generation
-# ---------------------------
 rf_fit <- ranger(
   RF_Class ~ .,              # outcome modeled by all predictors
   data = train_df,           # training data only
@@ -465,17 +391,14 @@ rf_fit <- ranger(
 )
 
 # 3. Model Output
-# ---------------------------
 rf_fit
 
-################################################################################
-# Step 5.3: Check Random Forest final model on test set
+# Step 5.3: Check Random Forest final model on test set ------------------------
 pred_probs <- predict(rf_fit, data = test_df)$predictions
 
 pred_class <- colnames(pred_probs)[max.col(pred_probs)]
 
 # 1. Confusion Matrix
-# ---------------------------
 
 cm <- confusionMatrix(
   factor(pred_class, levels = levels(train_df$RF_Class)),
@@ -492,8 +415,6 @@ ggplot(cm_df, aes(x = Reference, y = Prediction, fill = Freq)) +
   labs(title = "Confusion Matrix: Random Forest")
 
 # 2. Per-Class F1 Score
-# ---------------------------
-
 f1_scores <- cm$byClass[, "F1"]
 f1_scores
 
@@ -509,7 +430,6 @@ ggplot(f1_df, aes(x = Class, y = F1)) +
 
 
 # 3. AUC-ROC Curve (Multiclass)
-# ---------------------------
 # a. Set up "One vs. Rest" due to inherent binary nature ---
 roc_list <- list()       # for AUC
 roc_df_list <- list()    # for plotting
@@ -563,10 +483,7 @@ ggplot(auc_df, aes(x = Class, y = AUC)) +
   theme_bw() +
   labs(title = "AUC by Class")
 
-################################################################################
-################################################################################
-################################################################################
-# Step 6: Leave-One-Study-Out as gold standard for generalization as well
+### Step 6: Leave-One-Study-Out as gold standard ###############################
 #   For each study:
 #   - hold that study out as the test set
 #   - train on all remaining studies
@@ -575,9 +492,10 @@ ggplot(auc_df, aes(x = Class, y = AUC)) +
 #   - evaluate performance on the held-out study
 
 # a: Setup
-# -------------------------
 set.seed(123)  # ensures any random parts of RF are reproducible
-X_df <- taxa_df
+LOSO_taxa <- taxa_df
+LOSO_pathab <- path_abund_df
+LOSO_pathcov <- path_cov_df
 
 # Get study IDs to loop over
 study_ids <- unique(studies_meta_df$study_name)
@@ -589,7 +507,6 @@ loso_auc_results <- list()
 plots <- list()
 
 # b: LOSO loop
-# -------------------------
 for (test_study in study_ids) {
   
   message("Running LOSO for held-out study: ", test_study)

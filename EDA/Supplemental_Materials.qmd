@@ -34,8 +34,7 @@ suppressPackageStartupMessages({
 })
 
 # Run and load any data files needed prior to running this file, since we are no longer using Qualifying_Studies_List.R
-merged_studies <- readRDS("Kaitlyn_EDA/data/merged_studies.rds")
-eda_meta_df <- as.data.frame(colData(merged_studies[["relative_abundance"]]))
+eda_meta_df <- readRDS("Kaitlyn_EDA/data/merged_studies.rds")
 # from kaitlyn's Merged_Studies_EDA.R
 progression_order <- c(
   "HC",
@@ -72,6 +71,7 @@ progression_legend_title <- "CRC Progression\nClassifiers"
 #| label: Overall Age Summary Statistics
 #| echo: false
 #| message: false
+
 # Stats Setup
 #############
 age_overall <- eda_meta_df %>% 
@@ -110,7 +110,7 @@ age_overall %>%
     digits = 2,
     format = "latex"
   ) %>%
-  kable_styling(full_width = FALSE, latex_options = "hold_position") %>%
+  kable_styling(full_width = FALSE, latex_options = "HOLD_position") %>%
   column_spec(1, bold = TRUE)
 ```
 
@@ -241,7 +241,7 @@ country_overall %>%
   kbl(col.names = c("Country", "CRC Classifier", "Count"),
       caption = "Country CRC Progression Summary (NATO country code, trigram)", 
       format = "latex") %>%
-  kable_styling(full_width = F, latex_options = "hold_position") %>% 
+  kable_styling(full_width = F, latex_options = "HOLD_position") %>% 
   column_spec(1, bold = T) %>% 
   collapse_rows(columns = 1, valign = "top")
 ```
