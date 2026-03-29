@@ -42,6 +42,8 @@ progression_legend_title <- "CRC Progression\nClassifiers"
 # DATAFRAME CREATION ###########################################################
 eda_meta_df <- studies_meta_df %>%  filter(study_name != "HMP_2012") # make a copy of filtered dataframe from step 3.1 in FullML_Playground.R
 
+
+
 # METADATA COMPLETENESS ########################################################
 meta_cols <- setdiff(colnames(eda_meta_df), params$meta_drop)
 
