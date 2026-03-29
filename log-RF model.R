@@ -10,7 +10,8 @@ library(randomForest)
 library(caret)
 library(ggplot2)
 library(dplyr)
-
+library(tidyr)
+library(pROC)
 
 build_combined_features <- function(study) {
   # Extract matrices
@@ -61,7 +62,8 @@ combined_matrix <- do.call(cbind, combined_study_list_intersection)
 dim(combined_matrix)
 #Check unique sample IDs
 any(duplicated(colnames(combined_matrix)))
-
+#Check unique subject IDs
+any(duplicated(metadata_filtered$subject_id))
 #---------------------
 # Build metadata table
 #---------------------
@@ -194,18 +196,79 @@ df$Class <- gsub("Class: ", "", rownames(df))
 df$F1 <- 2 * (df$`Pos Pred Value` * df$Sensitivity) /
   (df$`Pos Pred Value` + df$Sensitivity)
 
-# Plot 1
+# Plot 1: Per class F1
 ggplot(df, aes(x = Class, y = F1, fill = Class)) +
   geom_col() +
   ylim(0, 1) +
-  ggtitle("Per-Class F1 Score") +
+  ggtitle("Per Class F1 Score") +
   theme_minimal()
 
-# Plot 2
+# Plot 2: Per class sensitivity
 ggplot(df, aes(x = Class, y = Sensitivity, fill = Class)) +
   geom_col() +
   ylim(0, 1) +
-  ggtitle("Per-Class Sensitivity") +
+  ggtitle("Per Class Sensitivity") +
+  theme_minimal()
+
+#Plot 3: Per class precision
+ggplot(df, aes(x = Class, y = `Pos Pred Value`, fill = Class)) +
+  geom_col() +
+  ylim(0, 1) +
+  ggtitle("Per-Class Precision") +
+  theme_minimal()
+
+#Plot 4: overall accuracy 
+acc_df <- data.frame(
+  Metric = "Accuracy",
+  Value = as.numeric(cm$overall["Accuracy"])
+)
+
+ggplot(acc_df, aes(x = Metric, y = Value)) +
+  geom_col(fill = "steelblue") +
+  ylim(0, 1) +
+  ggtitle("Overall Accuracy") +
+  theme_minimal()
+
+#Plot 5: confusion matrix heatmap 
+cm_df <- as.data.frame(cm$table)
+
+ggplot(cm_df, aes(x = Reference, y = Prediction, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq)) +
+  ggtitle("Confusion Matrix") +
+  theme_minimal()
+
+#Plot 6: Overfitting Check 
+train_pred <- predict(rf_model4, X_train)
+
+overfit_df <- data.frame(
+  Set = c("Train", "Test"),
+  Accuracy = c(
+    mean(train_pred == y_train),
+    mean(pred_final == y_test)
+  )
+)
+
+ggplot(overfit_df, aes(x = Set, y = Accuracy, fill = Set)) +
+  geom_col() +
+  ylim(0, 1) +
+  ggtitle("Overfitting Check") +
+  theme_minimal()
+
+#ROC/AUC
+prob <- predict(rf_model4, X_test, type = "prob")
+
+auc_df <- data.frame(
+  Class = colnames(prob),
+  AUC = sapply(colnames(prob), function(cl) {
+    roc(as.numeric(y_test == cl), prob[, cl])$auc
+  })
+)
+
+ggplot(auc_df, aes(x = Class, y = AUC, fill = Class)) +
+  geom_col() +
+  ylim(0, 1) +
+  ggtitle("ROC/AUC by Class") +
   theme_minimal()
 
 
