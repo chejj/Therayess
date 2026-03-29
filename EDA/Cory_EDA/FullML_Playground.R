@@ -1,6 +1,9 @@
+install.packages("curl")
+
 library("ranger")
 library(caret)
 library(SummarizedExperiment)
+library(xfun)
 library(curatedMetagenomicData)  # for mergeData
 library(dplyr)
 library(ggplot2)
