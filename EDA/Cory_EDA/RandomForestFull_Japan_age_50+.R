@@ -7,7 +7,9 @@ library(SummarizedExperiment)
 library(dplyr)
 library(curl)
 library(lime)
+library(MMUPHin)
 library(ggplot2)
+
 
 product_type <- "relative_abundance"
 
@@ -23,7 +25,7 @@ common_features <- Reduce(
 
 length(common_features)
 
-# 2. Build one combined dataframe at GENUS level
+# 2. Build one combined data frame at GENUS level
 combined_list_genus <- lapply(names(CRC_progression_studies), function(study) {
   se <- CRC_progression_studies[[study]][[product_type]]
   if (is.null(se)) return(NULL)
@@ -31,7 +33,7 @@ combined_list_genus <- lapply(names(CRC_progression_studies), function(study) {
   # keep only shared features
   mat <- assay(se)[common_features, , drop = FALSE]
   
-  # extract genus from rownames, then collapse duplicate genera
+  # extract genus from row names, then collapse duplicate genera
   genus_names <- sub(".*\\|g__([^|]+).*", "\\1", rownames(mat))
   mat_genus <- rowsum(mat, group = genus_names)
   
@@ -40,6 +42,7 @@ combined_list_genus <- lapply(names(CRC_progression_studies), function(study) {
   df <- as.data.frame(t(mat_genus))
   df$disease_class <- meta$disease_class
   df$study_name <- meta$study_name
+  df$studyID <- meta$studyID
   df$sequencing_platform <- meta$sequencing_platform
   df$DNA_extraction_kit <- meta$DNA_extraction_kit
   df$subject_id <- meta$subject_id
@@ -59,6 +62,7 @@ combined_list_genus <- lapply(names(CRC_progression_studies), function(study) {
   df$BMI <- meta$BMI
   df$age_decade <- meta$age_decade
   df$disease_class <- meta$disease_class
+  
   df
 })
 
@@ -70,10 +74,10 @@ table(combined_df_genus$study_name)
 
 
 # Filter country for Japan
-combined_df_genus <- combined_df_genus %>%  filter(country == "JPN")
+#combined_df_genus <- combined_df_genus %>%  filter(country == "JPN")
 
 # Filter CRC and HC
-combined_df_genus <- combined_df_genus %>% filter(disease_class %in% c("HC", "CRC"))
+#combined_df_genus <- combined_df_genus %>% filter(disease_class %in% c("HC", "CRC"))
 
 
 # Response variable
@@ -627,7 +631,116 @@ table(na.omit(yachida_test)$disease_class)
 
 
 
+#Separate meta data from the rest of the metagenomic data
+
+meta_df <- combined_df_genus %>%  select(71:last_col())
+relative_df <- combined_df_genus %>%  select(1:70)
 
 
+fit_adjust_batch <- adjust_batch(feature_abd = t(relative_df/100),
+                                 batch = "study_name",
+                                 covariates = "disease_class",
+                                 data = meta_df,
+                                 control = list(verbose = FALSE))
+
+relative_df_adj <- fit_adjust_batch$feature_abd_adj
+
+library(vegan, quietly = TRUE)
+
+D_before <- vegdist(relative_df)
+D_after <- vegdist(t(relative_df_adj))
+
+set.seed(1)
+fit_adonis_before <- adonis2(D_before ~ study_name, data = meta_df)
+fit_adonis_after <- adonis2(D_after ~ study_name, data = meta_df)
+print(fit_adonis_before)
+
+print(fit_adonis_after)
+
+# Combine metadata with adjusted relative abundance data
+combined_adj <- cbind(t(relative_df_adj), meta_df)
 
 
+# PCA before batch correction
+pca_before <- prcomp(relative_df, scale. = TRUE)
+
+# PCA after batch correction
+pca_after <- prcomp(t(relative_df_adj), scale. = TRUE)
+
+# Create a data frame with PCA results and metadata for plotting
+pca_before_df <- data.frame(
+  PC1 = pca_before$x[, 1],
+  PC2 = pca_before$x[, 2],
+  study_name = meta_df$study_name,
+  disease_class = meta_df$disease_class,
+  batch_status = "Before Adjustment"
+)
+
+pca_after_df <- data.frame(
+  PC1 = pca_after$x[, 1],
+  PC2 = pca_after$x[, 2],
+  study_name = meta_df$study_name,
+  disease_class = meta_df$disease_class,
+  batch_status = "After Adjustment"
+)
+
+# Combine for faceted plotting
+pca_combined <- rbind(pca_before_df, pca_after_df)
+
+# Visualize
+library(ggplot2)
+
+pdf("pca_batch_correction.pdf", width = 12, height = 5)
+
+ggplot(pca_combined, aes(x = PC1, y = PC2, color = study_name, shape = disease_class)) +
+  geom_point(size = 3, alpha = 0.7) +
+  facet_wrap(~batch_status) +
+  theme_minimal() +
+  labs(title = "PCA: MMUPHin Batch Correction Effect",
+       color = "Study", shape = "Disease Class")
+
+dev.off()
+
+
+y <- as.factor(meta_df$disease)
+
+# Pick the metadata columns you want to include as predictors
+meta_vars <- c("age_decade", "gender", "BMI", "study_condition")
+meta_x <- meta_df[, intersect(meta_vars, colnames(meta_df)), drop = FALSE]
+
+# Convert types
+meta_x[] <- lapply(meta_x, function(v) {
+  if (is.character(v)) as.factor(v) else v
+})
+
+num_vars <- intersect(c("age", "BMI"), colnames(meta_x))
+meta_x[num_vars] <- lapply(meta_x[num_vars], function(v) as.numeric(as.character(v)))
+
+# Create factors for desired variables
+meta_x$age_decade <- as.factor(meta_x$age_decade)
+meta_x$gender <- as.factor(meta_x$gender)
+meta_x$BMI <- as.numeric(meta_x$BMI)
+
+str(meta_x)
+
+# This ensures study_condition is used as a predictor
+y <- meta_x$study_condition
+
+meta_x2 <- meta_x[, c("age_decade", "gender", "BMI"), drop = FALSE]
+
+# Combines relative abundance data and metadata
+x <- cbind(t(relative_df_adj), meta_df)
+
+# Actually running the model
+keep <- complete.cases(x) & !is.na(y)
+x <- x[keep, , drop = FALSE] 
+y <- y[keep]
+
+is_constant <- sapply(x, function(v) length(unique(v[!is.na(v)])) <= 1)
+x <- x[, !is_constant, drop = FALSE]
+
+library(randomForest)
+set.seed(1)
+rf_fit <- randomForest(x = x, y = y, ntree = 10000, importance = TRUE)
+
+print(rf_fit)
