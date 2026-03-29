@@ -218,3 +218,52 @@ PNrf_model <- randomForest(
 predPN <- predict(PNrf_model, X_test)
 confusionMatrix(predPN, y_test)
 
+
+########################################
+# LODO on percentile-normalized data
+########################################
+
+studies <- unique(metadata_filtered$study_name)
+
+lodo_results <- lapply(studies, function(test_study) {
+  
+  cat("Running LODO for:", test_study, "\n")
+  
+  test_idx  <- which(metadata_filtered$study_name == test_study)
+  train_idx <- which(metadata_filtered$study_name != test_study)
+  
+  X_train_lodo <- X[train_idx, ]
+  X_test_lodo  <- X[test_idx, ]
+  
+  y_train_lodo <- y[train_idx]
+  y_test_lodo  <- y[test_idx]
+  
+  class_sizes_lodo <- table(y_train_lodo)
+  min_class_lodo <- min(class_sizes_lodo)
+  
+  rf_lodo <- randomForest(
+    x = X_train_lodo,
+    y = y_train_lodo,
+    ntree = 200,
+    sampsize = rep(min_class_lodo, length(class_sizes_lodo))
+  )
+  
+  pred_lodo <- predict(rf_lodo, X_test_lodo)
+  cm_lodo <- confusionMatrix(pred_lodo, y_test_lodo)
+  
+  data.frame(
+    Study = test_study,
+    N_test = length(y_test_lodo),
+    Accuracy = as.numeric(cm_lodo$overall["Accuracy"]),
+    Kappa = as.numeric(cm_lodo$overall["Kappa"])
+  )
+})
+
+lodo_results <- do.call(rbind, lodo_results)
+lodo_results
+
+mean(lodo_results$Accuracy)
+mean(lodo_results$Kappa)
+
+
+
