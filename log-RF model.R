@@ -176,6 +176,28 @@ rf_model4 <- randomForest(
 )
 pred_final <- predict(rf_model4, X_test)
 confusionMatrix(pred_final, y_test)
+#--------------------------------------------
+#create a clean table for feature importance 
+#--------------------------------------------
+importance_mat <- importance(rf_model4)
+feature_importance <- data.frame(
+  Feature = rownames(importance_mat),
+  MeanDecreaseGini = importance_mat[, "MeanDecreaseGini"]
+)
+
+# sort by importance
+feature_importance <- feature_importance[order(-feature_importance$MeanDecreaseGini), ]
+head(feature_importance, 20)
+top_features <- feature_importance[1:20, ]
+top_features
+#create a little plot 
+library(ggplot2)
+
+ggplot(top_features, aes(x = reorder(Feature, MeanDecreaseGini), y = MeanDecreaseGini)) +
+  geom_col(fill = "pink") +
+  coord_flip() +
+  ggtitle("Top 20 Important Features") +
+  theme_minimal()
 
 #Lets see those results!!!!
 cm <- confusionMatrix(pred_final, y_test)
