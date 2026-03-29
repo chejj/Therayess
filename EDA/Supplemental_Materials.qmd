@@ -34,8 +34,7 @@ suppressPackageStartupMessages({
 })
 
 # Run and load any data files needed prior to running this file, since we are no longer using Qualifying_Studies_List.R
-merged_studies <- readRDS("Kaitlyn_EDA/data/merged_studies.rds")
-eda_meta_df <- as.data.frame(colData(merged_studies[["relative_abundance"]]))
+eda_meta_df <- readRDS("Kaitlyn_EDA/data/merged_studies.rds")
 # from kaitlyn's Merged_Studies_EDA.R
 progression_order <- c(
   "HC",
