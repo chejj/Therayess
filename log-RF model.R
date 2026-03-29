@@ -133,27 +133,6 @@ y <- labels
 dim(X)
 length(y)
 
-#---------------------
-# run test train split
-#----------------------
-set.seed(42)
-
-trainIndex <- createDataPartition(y, p = 0.8, list = FALSE)
-
-X_train <- X[trainIndex, ]
-X_test  <- X[-trainIndex, ]
-y_train <- y[trainIndex]
-y_test  <- y[-trainIndex]
-
-length(y_train)
-length(y_test)
-
-#change focus of model to treat all class sizes equally instead of focusing on HC and CRC
-class_sizes <- table(y_train)
-class_sizes
-
-min_class <- min(class_sizes[class_sizes > 0])
-
 ##########################
 metadata_filtered$label2 <- dplyr::case_when(
   metadata_filtered$disease_class == "HC" ~ "HC",
@@ -167,7 +146,11 @@ table(metadata_filtered$label2)
 #rebuild Y
 y2 <- droplevels(as.factor(metadata_filtered$label2))
 
-#re-split + model 
+#---------------------
+# run test train split
+#----------------------
+set.seed(42)
+
 trainIndex <- createDataPartition(y2, p = 0.8, list = FALSE)
 
 X_train <- X[trainIndex, ]
@@ -175,8 +158,15 @@ X_test  <- X[-trainIndex, ]
 y_train <- y2[trainIndex]
 y_test  <- y2[-trainIndex]
 
+length(y_train)
+length(y_test)
+
+#change focus of model to treat all class sizes equally instead of focusing on HC and CRC
 class_sizes <- table(y_train)
-min_class <- min(class_sizes)
+class_sizes
+
+min_class <- min(class_sizes[class_sizes > 0])
+
 
 rf_model4 <- randomForest(
   x = X_train,
@@ -214,7 +204,7 @@ ggplot(df, aes(x = Class, y = Sensitivity, fill = Class)) +
 ggplot(df, aes(x = Class, y = `Pos Pred Value`, fill = Class)) +
   geom_col() +
   ylim(0, 1) +
-  ggtitle("Per-Class Precision") +
+  ggtitle("Per Class Precision") +
   theme_minimal()
 
 #Plot 4: overall accuracy 
@@ -271,4 +261,56 @@ ggplot(auc_df, aes(x = Class, y = AUC, fill = Class)) +
   ggtitle("ROC/AUC by Class") +
   theme_minimal()
 
+########################################
+#LODO Model
+########################################
+# make sure 4-class labels exist
+metadata_filtered$label2 <- dplyr::case_when(
+  metadata_filtered$disease_class == "HC" ~ "HC",
+  metadata_filtered$disease_class %in% c("PA", "PA+") ~ "PA",
+  metadata_filtered$disease_class %in% c("CRC", "CRC+") ~ "CRC",
+  metadata_filtered$disease_class == "Other" ~ "Other"
+)
 
+y2 <- droplevels(as.factor(metadata_filtered$label2))
+
+# check studies being used
+table(metadata_filtered$study_name)
+
+studies <- unique(metadata_filtered$study_name)
+
+lodo_results <- lapply(studies, function(test_study) {
+  
+  test_idx  <- which(metadata_filtered$study_name == test_study)
+  train_idx <- which(metadata_filtered$study_name != test_study)
+  
+  X_train_lodo <- X[train_idx, ]
+  X_test_lodo  <- X[test_idx, ]
+  y_train_lodo <- y2[train_idx]
+  y_test_lodo  <- y2[test_idx]
+  
+  class_sizes_lodo <- table(y_train_lodo)
+  min_class_lodo <- min(class_sizes_lodo)
+  
+  rf_lodo <- randomForest(
+    x = X_train_lodo,
+    y = y_train_lodo,
+    ntree = 500,
+    sampsize = rep(min_class_lodo, length(class_sizes_lodo))
+  )
+  
+  pred_lodo <- predict(rf_lodo, X_test_lodo)
+  cm_lodo <- confusionMatrix(pred_lodo, y_test_lodo)
+  
+  data.frame(
+    Study = test_study,
+    N_test = length(y_test_lodo),
+    Accuracy = as.numeric(cm_lodo$overall["Accuracy"]),
+    Kappa = as.numeric(cm_lodo$overall["Kappa"])
+  )
+})
+
+lodo_results <- do.call(rbind, lodo_results)
+lodo_results
+mean(lodo_results$Accuracy)
+mean(lodo_results$Kappa)
