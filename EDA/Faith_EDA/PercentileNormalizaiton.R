@@ -292,7 +292,6 @@ kappa_by_class <- lapply(classes, function(cl) {
 kappa_by_class <- do.call(rbind, kappa_by_class)
 kappa_by_class
 
-
 #Plot Kappas for LODO analysis 
 ggplot(kappa_by_class, aes(x = Class, y = Kappa, fill = Class)) +
   geom_col() +
