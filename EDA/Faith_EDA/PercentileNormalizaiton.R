@@ -255,8 +255,24 @@ lodo_preds <- lapply(studies, function(test_study) {
 
 lodo_preds <- do.call(rbind, lodo_preds)
 
+#Create per study metrics 
+lodo_results2 <- lodo_preds %>%
+  group_by(Study) %>%
+  do({
+    cm <- confusionMatrix(.$Pred, .$Truth)
+    
+    data.frame(
+      N_test = nrow(.),
+      Accuracy = as.numeric(cm$overall["Accuracy"]),
+      Kappa = as.numeric(cm$overall["Kappa"])
+    )
+  }) %>%
+  ungroup()
 
-library(caret)
+lodo_results2
+#get the LODO means 
+mean(lodo_results2$Accuracy)
+mean(lodo_results2$Kappa)
 
 classes <- levels(y)
 
