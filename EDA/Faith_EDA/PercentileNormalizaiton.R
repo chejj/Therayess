@@ -223,11 +223,7 @@ confusionMatrix(predPN, y_test)
 # LODO on percentile-normalized data
 ########################################
 
-studies <- unique(metadata_filtered$study_name)
-
-lodo_results <- lapply(studies, function(test_study) {
-  
-  cat("Running LODO for:", test_study, "\n")
+lodo_preds <- lapply(studies, function(test_study) {
   
   test_idx  <- which(metadata_filtered$study_name == test_study)
   train_idx <- which(metadata_filtered$study_name != test_study)
@@ -249,21 +245,43 @@ lodo_results <- lapply(studies, function(test_study) {
   )
   
   pred_lodo <- predict(rf_lodo, X_test_lodo)
-  cm_lodo <- confusionMatrix(pred_lodo, y_test_lodo)
   
   data.frame(
     Study = test_study,
-    N_test = length(y_test_lodo),
-    Accuracy = as.numeric(cm_lodo$overall["Accuracy"]),
-    Kappa = as.numeric(cm_lodo$overall["Kappa"])
+    Truth = y_test_lodo,
+    Pred = pred_lodo
   )
 })
 
-lodo_results <- do.call(rbind, lodo_results)
-lodo_results
-
-mean(lodo_results$Accuracy)
-mean(lodo_results$Kappa)
+lodo_preds <- do.call(rbind, lodo_preds)
 
 
+library(caret)
+
+classes <- levels(y)
+
+kappa_by_class <- lapply(classes, function(cl) {
+  
+  truth_bin <- factor(ifelse(lodo_preds$Truth == cl, "Yes", "No"))
+  pred_bin  <- factor(ifelse(lodo_preds$Pred == cl, "Yes", "No"))
+  
+  cm <- confusionMatrix(pred_bin, truth_bin)
+  
+  data.frame(
+    Class = cl,
+    Kappa = as.numeric(cm$overall["Kappa"])
+  )
+})
+
+kappa_by_class <- do.call(rbind, kappa_by_class)
+kappa_by_class
+
+
+#Plot Kappas for LODO analysis 
+ggplot(kappa_by_class, aes(x = Class, y = Kappa, fill = Class)) +
+  geom_col() +
+  ylim(0, 1) +
+  ggtitle("Kappa by Class (LODO + Percentile Normalization)") +
+  theme_minimal() +
+  guides(fill = "none")
 
