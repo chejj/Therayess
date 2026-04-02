@@ -9,17 +9,18 @@ library(pROC)
 params <- list(
   target_test_pct = 0.3,
   prev_threshold = 0.00001,
-  num_trees = 1000,
-  mtry_fraction = 0.01,
-  min_node_size = 5,
+  num_trees = 5000,
+  max_depth = 15,
+  mtry_fraction = 0.03,
+  min_node_size = 20,
   num_threads = 8,
   class_keep = c(
-#    "HC",
-#    "PA",
-#    "CRC"
-    "Other",
-    "PA+",
-    "CRC+"
+    "HC",
+    "PA",
+    "CRC",
+    "Other"
+#    "PA+",
+#    "CRC+"
 #    "CRC-H", 
 #    "CRC-M", 
 #    "PA-M"
@@ -500,16 +501,17 @@ mtry_val <- max(1, ceiling(params$mtry_fraction * p))
   
 # 2. Model Generation
 rf_fit <- ranger(
-  dependent.variable.name = "RF_Class",              # outcome modeled by all predictors
-  data = train_df,           # training data only
-  num.trees = params$num_trees,           # start with 500 trees, approach 10000
+  dependent.variable.name = "RF_Class", # outcome modeled by all predictors
+  data = train_df,                      # training data only
+  num.trees = params$num_trees,         # start with 500 trees, approach 10000
+  max.depth = params$max_depth,
   class.weights = class_weights,
-  mtry = mtry_val,           # % of features considered at each split
-  min.node.size = params$min_node_size,         # minimum samples per terminal node
+  mtry = mtry_val,                      # % of features considered at each split
+  min.node.size = params$min_node_size, # minimum samples per terminal node
   probability = TRUE,        # needed for multiclass probabilities / ROC
   importance = "impurity",   # feature importance
   splitrule = "gini",        # closest standard classification impurity rule in ranger, entropy is not available in ranger
-  num.threads = params$num_threads            # match HPC core request
+  num.threads = params$num_threads      # match HPC core request
 )
 
 # 3. Model Output
@@ -611,6 +613,31 @@ ggplot(auc_df, aes(x = Class, y = AUC)) +
   coord_cartesian(ylim = c(0, 1)) +
   theme_bw() +
   labs(title = "AUC by Class")
+
+# 4. Overfitting check: compare train vs test accuracy
+# a. Get predicted probabilities  and convert to predicted class
+train_pred_probs <- predict(rf_fit, data = train_df)$predictions
+train_pred_class <- colnames(train_pred_probs)[max.col(train_pred_probs)]
+
+test_pred_probs <- predict(rf_fit, data = test_df)$predictions
+test_pred_class <- colnames(test_pred_probs)[max.col(test_pred_probs)]
+
+# b. Compute accuracies
+train_accuracy <- mean(train_pred_class == train_df$RF_Class)
+test_accuracy  <- mean(test_pred_class == test_df$RF_Class)
+
+# c. Build plotting data frame
+overfit_df <- data.frame(
+  Set = c("Train", "Test"),
+  Accuracy = c(train_accuracy, test_accuracy)
+)
+
+# d. Plot
+ggplot(overfit_df, aes(x = Set, y = Accuracy, fill = Set)) +
+  geom_col() +
+  coord_cartesian(ylim = c(0, 1)) +
+  ggtitle("Overfitting Check") +
+  theme_minimal()
 
 ### Step 6: Leave-One-Study-Out as gold standard ###############################
 #   For each study:
@@ -898,8 +925,19 @@ ggplot(loso_auc_df, aes(x = Class, y = AUC)) +
     y = "AUC"
   )
 
+# Step 7: Feature Importance
 
+#Built In
+sort(importance(rf_fit), decreasing = TRUE)[1:20]
 
+# Count Splits
+split_counts <- unlist(
+  lapply(1:rf_fit$num.trees, function(t) {
+    treeInfo(rf_fit, tree = t)$splitvarName
+  })
+)
+
+table(split_counts, useNA = "no")
 
 
 
