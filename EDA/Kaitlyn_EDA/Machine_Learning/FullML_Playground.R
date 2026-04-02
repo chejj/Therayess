@@ -639,6 +639,19 @@ ggplot(overfit_df, aes(x = Set, y = Accuracy, fill = Set)) +
   ggtitle("Overfitting Check") +
   theme_minimal()
 
+# Step 5.4: Check Feature Importance -------------------------------------------
+#Built In
+sort(importance(rf_fit), decreasing = TRUE)[1:20]
+
+# Count Splits
+split_counts <- unlist(
+  lapply(1:rf_fit$num.trees, function(t) {
+    treeInfo(rf_fit, tree = t)$splitvarName
+  })
+)
+
+table(split_counts, useNA = "no")
+
 ### Step 6: Leave-One-Study-Out as gold standard ###############################
 #   For each study:
 #   - hold that study out as the test set
@@ -647,7 +660,7 @@ ggplot(overfit_df, aes(x = Set, y = Accuracy, fill = Set)) +
 #   - fit random forest
 #   - evaluate performance on the held-out study
 
-# a: Setup
+# a: Setup ---------------------------------------------------------------------
 set.seed(123)  # ensures any random parts of RF are reproducible
 LOSO_taxa <- taxa_df
 LOSO_pathab <- path_abund_df
@@ -662,14 +675,12 @@ loso_f1_results <- list()
 loso_auc_results <- list()
 plots <- list()
 
-# b: LOSO loop
+# b: LOSO loop -----------------------------------------------------------------
 for (test_study in study_ids) {
   
   message("Running LOSO for held-out study: ", test_study)
   
-  # -------------------------
-  # A. Define train/test samples by study
-  # -------------------------
+  # A. Define train/test samples by study -------------------------
   # Train = all samples NOT in the held-out study
   # Test  = all samples IN the held-out study
   train_samples <- rownames(studies_meta_df)[
@@ -680,18 +691,14 @@ for (test_study in study_ids) {
     studies_meta_df$study_name == test_study
   ]
   
-  # -------------------------
-  # B. Subset metadata and predictors
-  # -------------------------
+  # B. Subset metadata and predictors -------------------------
   train_meta <- studies_meta_df[train_samples, , drop = FALSE]
   test_meta  <- studies_meta_df[test_samples, , drop = FALSE]
   
   train_X <- X_df[train_samples, , drop = FALSE]
   test_X  <- X_df[test_samples, , drop = FALSE]
   
-  # -------------------------
-  # C. QC: confirm row alignment is preserved
-  # -------------------------
+  # C. QC: confirm row alignment is preserved -------------------------
   if (
     identical(rownames(train_X), rownames(train_meta)) &&
     identical(rownames(test_X), rownames(test_meta))
@@ -701,9 +708,7 @@ for (test_study in study_ids) {
     stop("  ❌ Train/test sample alignment NOT preserved.")
   }
   
-  # -------------------------
-  # D. Skip studies with too few classes in test set
-  # -------------------------
+  # D. Skip studies with too few classes in test set -------------------------
   # For multiclass evaluation, a held-out study with only one class is not very informative.
   # This avoids failures in confusion matrix / ROC calculations.
   if (length(unique(test_meta$RF_Class)) < 2) {
@@ -711,10 +716,34 @@ for (test_study in study_ids) {
     next
   }
   
-  # -------------------------
-  # E. Feature filtering (TRAIN ONLY - avoid leakage.)
-  # -------------------------
-  # Prevalence filtering
+  # E. Feature Transformations (TRAIN ONLY - avoid leakage.) -------------------------
+  # I. METADATA ----
+  # a. Drop columns
+  
+  # b. Metadata completeness filter
+  
+  # II. RELATIVE ABUNDANCE ----
+  # a. Prevalence Filtering
+  
+  # b. Near-zero variance filtering
+  
+  # c. Normalization and log transformations
+  
+  
+  # III. PATHWAY ABUNDANCE ----
+  # a. Prevalence Filtering
+  
+  # b. Near-zero variance filtering
+  
+  # c. Normalization and log transformations
+  
+  
+  # IV. PATHWAY COVERAGE ----
+  # a. Prevalence Filtering
+  
+  # b. Near-zero variance filtering
+  
+  
   prev_threshold <- params$prev_threshold
   # Keep features present (> 0) in at least 10% of training samples.
   feature_prevalence <- colMeans(train_X > 0)
@@ -737,9 +766,7 @@ for (test_study in study_ids) {
     test_X_filt  <- test_X_prev
   }
   
-  # -------------------------
-  # F. Build modeling data frames
-  # -------------------------
+  # F. Build modeling data frames -------------------------
   # Combine filtered predictors with the outcome column.
   train_df <- cbind(train_X_filt, RF_Class = train_meta$RF_Class)
   test_df  <- cbind(test_X_filt,  RF_Class = test_meta$RF_Class)
@@ -748,9 +775,7 @@ for (test_study in study_ids) {
   train_df$RF_Class <- factor(train_df$RF_Class)
   test_df$RF_Class  <- factor(test_df$RF_Class, levels = levels(train_df$RF_Class))
   
-  # -------------------------
-  # G. QC printout
-  # -------------------------
+  # G. QC printout -------------------------
   message("  Train samples: ", nrow(train_df))
   message("  Test samples: ", nrow(test_df))
   message("  Train classes: ", paste(unique(train_df$RF_Class), collapse = ", "))
@@ -759,9 +784,7 @@ for (test_study in study_ids) {
   message("After prevalence filter: ", length(keep_prev_features))
   message("Final features after variance filter: ", ncol(train_X_filt))
   
-  # -------------------------
-  # H. Fit random forest
-  # -------------------------
+  # H. Fit random forest -------------------------
   # Number of predictor features in this LOSO training fold
   p <- ncol(train_df) - 1
   
@@ -773,30 +796,27 @@ for (test_study in study_ids) {
   class_weights <- sum(class_counts) / (length(class_counts) * class_counts)
   
   rf_fit <- ranger(
-    RF_Class ~ .,
-    data = train_df,
-    num.trees = params$num_trees,          # start here; increase later if desired
+    dependent.variable.name = "RF_Class", # outcome modeled by all predictors
+    data = train_df,                      # training data only
+    num.trees = params$num_trees,         # start with 500 trees, approach 10000
+    max.depth = params$max_depth,
     class.weights = class_weights,
-    mtry = mtry_val,          # % of features per split
-    min.node.size = params$min_node_size,        # minimum samples per terminal node
-    probability = TRUE,       # needed for multiclass probabilities / ROC
-    importance = "impurity",  # feature importance measure
-    splitrule = "gini",       # standard classification split rule in ranger
-    num.threads = params$num_threads           # set equal to requested HPC cores
+    mtry = mtry_val,                      # % of features considered at each split
+    min.node.size = params$min_node_size, # minimum samples per terminal node
+    probability = TRUE,        # needed for multiclass probabilities / ROC
+    importance = "impurity",   # feature importance
+    splitrule = "gini",        # closest standard classification impurity rule in ranger, entropy is not available in ranger
+    num.threads = params$num_threads      # match HPC core request
   )
   
-  # -------------------------
-  # I. Predict on held-out study
-  # -------------------------
+  # I. Predict on held-out study -------------------------
   pred_probs <- predict(rf_fit, data = test_df)$predictions
   
   # Convert probability matrix into predicted class labels
   pred_class <- colnames(pred_probs)[max.col(pred_probs)]
   pred_class <- factor(pred_class, levels = levels(train_df$RF_Class))
   
-  # -------------------------
-  # J. Confusion matrix
-  # -------------------------
+  # J. Confusion matrix -------------------------
   cm <- confusionMatrix(
     data = pred_class,
     reference = test_df$RF_Class
@@ -810,9 +830,7 @@ for (test_study in study_ids) {
     theme_bw() +
       labs(title = paste("Confusion Matrix (LOSO) —", test_study)) 
   
-  # -------------------------
-  # K. Store overall accuracy
-  # -------------------------
+  # K. Store overall accuracy -------------------------
   loso_accuracy_results[[test_study]] <- data.frame(
     Study = test_study,
     Accuracy = as.numeric(cm$overall["Accuracy"]),
@@ -823,9 +841,7 @@ for (test_study in study_ids) {
   )
   
   
-  # -------------------------
-  # L. Store per-class F1 scores
-  # -------------------------
+  # L. Store per-class F1 scores -------------------------
   # In multiclass settings, cm$byClass is usually a matrix with one row per class.
   if (is.matrix(cm$byClass)) {
     f1_df <- data.frame(
@@ -838,9 +854,7 @@ for (test_study in study_ids) {
     loso_f1_results[[test_study]] <- f1_df
   }
   
-  # -------------------------
-  # M. Compute one-vs-rest AUC for each class
-  # -------------------------
+  # M. Compute one-vs-rest AUC for each class -------------------------
   roc_list <- list()
   auc_values <- c()
   
@@ -925,19 +939,7 @@ ggplot(loso_auc_df, aes(x = Class, y = AUC)) +
     y = "AUC"
   )
 
-# Step 7: Feature Importance
 
-#Built In
-sort(importance(rf_fit), decreasing = TRUE)[1:20]
-
-# Count Splits
-split_counts <- unlist(
-  lapply(1:rf_fit$num.trees, function(t) {
-    treeInfo(rf_fit, tree = t)$splitvarName
-  })
-)
-
-table(split_counts, useNA = "no")
 
 
 
