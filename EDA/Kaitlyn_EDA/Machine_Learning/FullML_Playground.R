@@ -28,6 +28,7 @@ params <- list(
   study_drop = c("HMP_2012"), 
   meta_drop = c(
     "RF_Class",
+#    "country",
     "disease_class",
     "keep_study",
     "study_name",
@@ -633,6 +634,7 @@ overfit_df <- data.frame(
 )
 
 # d. Plot
+overfit_df
 ggplot(overfit_df, aes(x = Set, y = Accuracy, fill = Set)) +
   geom_col() +
   coord_cartesian(ylim = c(0, 1)) +
@@ -650,7 +652,7 @@ split_counts <- unlist(
   })
 )
 
-table(split_counts, useNA = "no")
+head(sort(table(split_counts, useNA = "no"), decreasing = TRUE), 20)
 
 ### Step 6: Leave-One-Study-Out as gold standard ###############################
 #   For each study:
