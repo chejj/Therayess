@@ -69,7 +69,7 @@ params <- list(
 # Step 5.4: Inspect Feature Importance
 # Step 6: Repeat Step 5 but with Leave-One-Study-Out as gold standard
 
-# --- Step 1: Merge studies into one nested list by type #######################
+### --- Step 1: Merge studies into one nested list by type #######################
 types <- c("relative_abundance", "pathway_coverage", "pathway_abundance")
 
 merged_studies <- lapply(types, function(type) {
@@ -476,8 +476,7 @@ message("Pathway Coverage Features Kept: ", ncol(train_pathcov_filt))
 
 
 # Step 5.2: Fit Random Forest --------------------------------------------------
-
-# 1. Model Input Preparation
+# A. Model Input Preparation ----
 # Potentially only keep those that have all three (FAITH CODE HAS THIS)
 
 train_X <- cbind(train_meta_x, train_taxa_filt, train_pathab_filt, train_pathcov_filt)
@@ -500,7 +499,7 @@ p <- ncol(train_df) - 1
 # Set mtry to X% of total predictors, or 1, whichever is larger
 mtry_val <- max(1, ceiling(params$mtry_fraction * p))
   
-# 2. Model Generation
+# B. Model Generation ----
 rf_fit <- ranger(
   dependent.variable.name = "RF_Class", # outcome modeled by all predictors
   data = train_df,                      # training data only
@@ -515,7 +514,7 @@ rf_fit <- ranger(
   num.threads = params$num_threads      # match HPC core request
 )
 
-# 3. Model Output
+# C. Model Output ----
 rf_fit
 
 # Step 5.3: Check Random Forest final model on test set ------------------------
@@ -523,7 +522,7 @@ pred_probs <- predict(rf_fit, data = test_df)$predictions
 
 pred_class <- colnames(pred_probs)[max.col(pred_probs)]
 
-# 1. Confusion Matrix
+# A. Confusion Matrix ----
 
 cm <- confusionMatrix(
   factor(pred_class, levels = levels(train_df$RF_Class)),
@@ -539,7 +538,7 @@ ggplot(cm_df, aes(x = Reference, y = Prediction, fill = Freq)) +
   theme_bw() +
   labs(title = "Confusion Matrix: Random Forest")
 
-# 2. Per-Class F1 Score
+# B. Per-Class F1 Score ----
 if (is.matrix(cm$byClass)) {
   f1_df <- data.frame(
     Class = rownames(cm$byClass),
@@ -561,8 +560,8 @@ ggplot(f1_df, aes(x = Class, y = F1)) +
   labs(title = "Per-Class F1 Score", y = "F1 Score")
 
 
-# 3. AUC-ROC Curve (Multiclass)
-# a. Set up "One vs. Rest" due to inherent binary nature ---
+# C. AUC-ROC Curve (Multiclass) ----
+# i. Set up "One vs. Rest" due to inherent binary nature ---
 roc_list <- list()       # for AUC
 roc_df_list <- list()    # for plotting
 
@@ -589,7 +588,7 @@ for (class in colnames(pred_probs)) {
 # Combine for ggplot
 roc_df_all <- dplyr::bind_rows(roc_df_list)
 
-# b. Plot the ROC Curves ---
+# ii. Plot the ROC Curves ---
 ggplot(roc_df_all, aes(x = FPR, y = TPR, color = Class)) +
   geom_line(linewidth = 1) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed") +  # random baseline
@@ -600,7 +599,7 @@ ggplot(roc_df_all, aes(x = FPR, y = TPR, color = Class)) +
     y = "True Positive Rate"
   ) 
 
-# c. Extract AUC Values ---
+# iii. Extract AUC Values ---
 auc_values <- sapply(roc_list, function(x) auc(x))
 
 auc_df <- data.frame(
@@ -615,25 +614,25 @@ ggplot(auc_df, aes(x = Class, y = AUC)) +
   theme_bw() +
   labs(title = "AUC by Class")
 
-# 4. Overfitting check: compare train vs test accuracy
-# a. Get predicted probabilities  and convert to predicted class
+# D. Overfitting check: compare train vs test accuracy ----
+# i. Get predicted probabilities  and convert to predicted class
 train_pred_probs <- predict(rf_fit, data = train_df)$predictions
 train_pred_class <- colnames(train_pred_probs)[max.col(train_pred_probs)]
 
 test_pred_probs <- predict(rf_fit, data = test_df)$predictions
 test_pred_class <- colnames(test_pred_probs)[max.col(test_pred_probs)]
 
-# b. Compute accuracies
+# ii. Compute accuracies
 train_accuracy <- mean(train_pred_class == train_df$RF_Class)
 test_accuracy  <- mean(test_pred_class == test_df$RF_Class)
 
-# c. Build plotting data frame
+# iii. Build plotting data frame
 overfit_df <- data.frame(
   Set = c("Train", "Test"),
   Accuracy = c(train_accuracy, test_accuracy)
 )
 
-# d. Plot
+# iv. Plot
 overfit_df
 ggplot(overfit_df, aes(x = Set, y = Accuracy, fill = Set)) +
   geom_col() +
@@ -642,7 +641,7 @@ ggplot(overfit_df, aes(x = Set, y = Accuracy, fill = Set)) +
   theme_minimal()
 
 # Step 5.4: Check Feature Importance -------------------------------------------
-#Built In
+# Built In
 sort(importance(rf_fit), decreasing = TRUE)[1:20]
 
 # Count Splits
