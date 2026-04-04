@@ -149,7 +149,7 @@ studies_meta_df$RF_Class <- case_when(
   TRUE ~ NA_character_
 )
 
-### This allows for class collapsing, see below:
+### This allows for class collapsing:
 # studies_meta_df$RF_Class <- dplyr::case_when(
 #   studies_meta_df$disease_class %in% c("CRC", "CRC+", "CRC-H") ~ "CRC",
 #   studies_meta_df$disease_class %in% c("PA", "PA+") ~ "PA",

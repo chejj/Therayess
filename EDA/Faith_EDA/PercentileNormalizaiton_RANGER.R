@@ -210,9 +210,24 @@ PNrf_model <- ranger(
   dependent.variable.name = "y", # outcome modeled by all predictors
   data = train_df,
   num.trees = 200,
-  importance = "none",     # optional
+  importance = "none",     
   classification = TRUE    # explicit for clarity
 )
+
+# Kaitlyn's Pipeline Model. Use this to further tune the above with more parameters?
+# rf_fit <- ranger(
+#   dependent.variable.name = "RF_Class", # outcome modeled by all predictors
+#   data = train_df,                      # training data only
+#   num.trees = params$num_trees,         # start with 500 trees, approach 10000
+#   max.depth = params$max_depth,         # How many splits the tree goes to. Reduces specificity but also reduces overfitting
+#   class.weights = class_weights,        # Formula: sum(class_counts) / (length(class_counts) * class_counts)
+#   mtry = mtry_val,                      # % of features considered at each split. Uses formula: max(1, ceiling(params$mtry_fraction * p))
+#   min.node.size = params$min_node_size, # minimum samples per terminal node. Currently set to 20 in Kaitlyn's pipeline
+#   probability = TRUE,                   # needed for multiclass probabilities / ROC plotting
+#   importance = "impurity",              # feature importance, so we can interpret for discussion
+#   splitrule = "gini",                   # closest standard classification impurity rule in ranger, entropy is not available in ranger
+#   num.threads = params$num_threads      # match HPC core request, set to 8 in Kaitlyn's pipeline
+# )
 
 predPN <- predict(PNrf_model, data = test_df)$predictions
 confusionMatrix(predPN, y_test)
