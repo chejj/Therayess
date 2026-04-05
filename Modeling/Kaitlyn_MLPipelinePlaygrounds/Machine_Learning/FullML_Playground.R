@@ -18,17 +18,18 @@ params <- list(
     "HC",
     "PA",
     "CRC",
-    "Other"
-#    "PA+",
-#    "CRC+"
+    "Other",
+    "PA+",
+    "CRC+",
 #    "CRC-H", 
-#    "CRC-M", 
-#    "PA-M"
+    "CRC-M", 
+    "PA-M"
   ), #options: "HC", "PA", "CRC", "Other", "PA+", "CRC+", "CRC-H", "CRC-M", "PA-M" 
   study_drop = c("HMP_2012"), 
   meta_drop = c(
     "RF_Class",
 #    "country",
+    "age",
     "disease_class",
     "keep_study",
     "study_name",
@@ -150,12 +151,13 @@ studies_meta_df$RF_Class <- case_when(
 )
 
 ### This allows for class collapsing:
-# studies_meta_df$RF_Class <- dplyr::case_when(
-#   studies_meta_df$disease_class %in% c("CRC", "CRC+", "CRC-H") ~ "CRC",
-#   studies_meta_df$disease_class %in% c("PA", "PA+") ~ "PA",
-#   studies_meta_df$disease_class == "HC" ~ "HC",
-#   TRUE ~ NA_character_
-# )
+studies_meta_df$RF_Class <- dplyr::case_when(
+  studies_meta_df$disease_class %in% c("HC", "Other") ~ "NEGATIVE_POLYP",
+  studies_meta_df$disease_class %in% c("CRC", "CRC+", "CRC-M", "PA", "PA+", "PA-M") ~ "POSITIVE_POLYP",
+  TRUE ~ NA_character_
+) %>% as.factor() %>% factor(levels = c("POSITIVE_POLYP", "NEGATIVE_POLYP")  # 1st = positive class, 2nd = reference
+)
+  
 
 studies_meta_df$keep_study <- !studies_meta_df$study_name %in% params$study_drop
 
@@ -479,8 +481,16 @@ message("Pathway Coverage Features Kept: ", ncol(train_pathcov_filt))
 # A. Model Input Preparation ----
 # Potentially only keep those that have all three (FAITH CODE HAS THIS)
 
-train_X <- cbind(train_meta_x, train_taxa_filt, train_pathab_filt, train_pathcov_filt)
-test_X  <- cbind(test_meta_x,  test_taxa_filt,  test_pathab_filt,  test_pathcov_filt)
+train_X <- cbind(
+  train_meta_x, 
+  train_taxa_filt, 
+  train_pathab_filt, 
+  train_pathcov_filt)
+test_X  <- cbind(
+  test_meta_x,  
+  test_taxa_filt,  
+  test_pathab_filt,  
+  test_pathcov_filt)
 
 train_df <- cbind(train_X, RF_Class = train_meta$RF_Class)
 test_df  <- cbind(test_X,  RF_Class = test_meta$RF_Class)
