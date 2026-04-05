@@ -7,6 +7,14 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(pROC)
+######PARAMETERS################################################################
+params <- list(
+  num_trees = 5000,
+  max_depth = 15,
+  mtry_fraction = 0.03, # % of features considered at each split
+  min_node_size = 20,   # minimum samples per terminal node
+  num_threads = 8       # Set to match HPC core
+)
 
 ## Step 1: Create a matrix for each study ######################################
 build_combined_features <- function(study) {
@@ -182,34 +190,61 @@ X_test  <- X[-trainIndex, ]
 y_train <- y[trainIndex]
 y_test  <- y[-trainIndex]
 
-# C: Convert to data.frame and bind y (ranger prefers formula or full data)
+prop.table(table(droplevels(y_train)))
+prop.table(table(droplevels(y_test)))
+
+## QC Check: Original CRC Progression Class Splits
+disease_train <- metadata_filtered$disease_class[trainIndex]
+disease_test  <- metadata_filtered$disease_class[-trainIndex]
+
+# Check counts 
+table(droplevels(disease_train))
+table(droplevels(disease_test))
+
+# Check Proportions (could make a ggplot for this to show balance?)
+prop.table(table(droplevels(disease_train)))
+prop.table(table(droplevels(disease_test)))
+
+# C: Convert to data.frame and bind y (ranger prefers formula or full data) ---
 train_df <- data.frame(RF_Class = y_train, X_train)
 test_df  <- data.frame(RF_Class = y_test, X_test)
 
-# C: Model Generation ----
+# Check and prep for class imbalance
+class_counts <- table(train_df$RF_Class)
+class_weights <- sum(class_counts) / (length(class_counts) * class_counts)
+
+# Number of predictor features (exclude outcome column)
+p <- ncol(train_df) - 1
+
+# Set mtry to X% of total predictors, or 1, whichever is larger
+mtry_val <- max(1, ceiling(params$mtry_fraction * p))
+
+# D: Model Generation ----
 PNrf_model <- ranger(
   dependent.variable.name = "RF_Class", # outcome modeled by all predictors
   data = train_df,                      # training data only
-  num.trees = 500,         # start with 500 trees, approach 10000
-  max.depth = 15,
-#  class.weights = class_weights,
-#  mtry = mtry_val,                      # % of features considered at each split
-#  min.node.size = params$min_node_size, # minimum samples per terminal node
+  num.trees = params$num_trees,         
+  max.depth = params$max_depth,
+  class.weights = class_weights,
+  mtry = mtry_val,                      
+  min.node.size = params$min_node_size, 
   probability = TRUE,        # needed for multiclass probabilities / ROC
   importance = "impurity",   # feature importance
 #  splitrule = "gini",        # closest standard classification impurity rule in ranger, entropy is not available in ranger
-  num.threads = 8      # match HPC core request
+  num.threads = params$num_threads
 )
 
-# D. Model Output ----
+# E. Model Output ----
 PNrf_model
 
-# E: Check against test set ----
-pred_probs <- predict(PNrf_model, data = test_df)$predictions
+# Step 6: Check against test set ----
+
+# explicitly drop the classifier so it doesn't get used in prediction as a safeguard
+pred_probs <- predict(PNrf_model, data = test_df[, colnames(test_df) != "RF_Class"])$predictions 
 
 pred_class <- colnames(pred_probs)[max.col(pred_probs)]
 
-# F. Confusion Matrix ----
+# A. Confusion Matrix ----
 
 cm <- confusionMatrix(
   factor(pred_class, levels = levels(train_df$RF_Class)),
@@ -225,7 +260,7 @@ ggplot(cm_df, aes(x = Reference, y = Prediction, fill = Freq)) +
   theme_bw() +
   labs(title = "Confusion Matrix: Random Forest")
 
-# G. Per-Class F1 Score ----
+# B. Per-Class F1 Score ----
 if (is.matrix(cm$byClass)) {
   f1_df <- data.frame(
     Class = rownames(cm$byClass),
@@ -247,8 +282,8 @@ ggplot(f1_df, aes(x = Class, y = F1)) +
   labs(title = "Per-Class F1 Score", y = "F1 Score")
 
 
-# H. AUC-ROC Curve (Multiclass) ----
-# i. Set up "One vs. Rest" due to inherent binary nature ---
+# C. AUC-ROC Curve (Multiclass) ----
+# i. Set up ---
 roc_list <- list()       # for AUC
 roc_df_list <- list()    # for plotting
 
@@ -301,7 +336,7 @@ ggplot(auc_df, aes(x = Class, y = AUC)) +
   theme_bw() +
   labs(title = "AUC by Class")
 
-# I. Overfitting check: compare train vs test accuracy ----
+# D. Overfitting check: compare train vs test accuracy ----
 # i. Get predicted probabilities  and convert to predicted class
 train_pred_probs <- predict(PNrf_model, data = train_df)$predictions
 train_pred_class <- colnames(train_pred_probs)[max.col(train_pred_probs)]
@@ -345,6 +380,7 @@ lodo_preds <- lapply(studies, function(test_study) {
   train_df <- data.frame(Truth = y_train_lodo, X_train_lodo)
   test_df  <- data.frame(X_test_lodo)
   
+  ## OPTION A: DOWN SAMPLING ----
   # Skip if fewer than 2 classes remain in training
   class_sizes_lodo <- table(train_df$Truth)
   if (length(class_sizes_lodo) < 2) {
@@ -360,13 +396,30 @@ lodo_preds <- lapply(studies, function(test_study) {
   
   balanced_train_df$Truth <- droplevels(as.factor(balanced_train_df$Truth))
   
+  # ## OPTION B: CLASS WEIGHTING (Like in 80/20 split) ----
+  # # Check and prep for class imbalance
+  # class_counts <- table(train_df$RF_Class)
+  # class_weights <- sum(class_counts) / (length(class_counts) * class_counts)
+  # 
+  # # Number of predictor features (exclude outcome column)
+  # p <- ncol(train_df) - 1
+  # 
+  # # Set mtry to X% of total predictors, or 1, whichever is larger
+  # mtry_val <- max(1, ceiling(params$mtry_fraction * p))
+  # balanced_train_df <- train_df
+  
   rg_lodo <- ranger(
-    dependent.variable.name = "Truth",
-    data = balanced_train_df,
-    num.trees = 200,
-    classification = TRUE,
-    probability = FALSE,
-    importance = "none"
+    dependent.variable.name = "RF_Class", # outcome modeled by all predictors
+    data = balanced_train_df,                      # training data only
+    num.trees = params$num_trees,         
+    max.depth = params$max_depth,
+    class.weights = class_weights,
+#    mtry = mtry_val,          # See option B above            
+    min.node.size = params$min_node_size, 
+    probability = TRUE,        # needed for multiclass probabilities / ROC
+    importance = "impurity",   # feature importance
+    #  splitrule = "gini",        # closest standard classification impurity rule in ranger, entropy is not available in ranger
+    num.threads = params$num_threads
   )
   
   pred_lodo <- predict(rg_lodo, data = test_df)$predictions
