@@ -240,7 +240,7 @@ lodo_preds <- lapply(studies, function(test_study) {
   rf_lodo <- randomForest(
     x = X_train_lodo,
     y = y_train_lodo,
-    ntree = 200,
+    ntree = 500,
     sampsize = rep(min_class_lodo, length(class_sizes_lodo))
   )
   
@@ -295,7 +295,7 @@ kappa_by_class
 #Plot Kappas for LODO analysis 
 ggplot(kappa_by_class, aes(x = Class, y = Kappa, fill = Class)) +
   geom_col() +
-  ylim(0, 1) +
+  ylim(-0.1, 1) +
   ggtitle("Kappa by Class (LODO + Percentile Normalization)") +
   theme_minimal() +
   guides(fill = "none")
@@ -355,7 +355,6 @@ ggplot(plot_df, aes(x = Class, y = Value, fill = Metric)) +
   ggtitle("LODO + Percentile Normalization: F1 and AUC by Class") +
   ylab("Score") +
   theme_minimal()
-
 
 
 
