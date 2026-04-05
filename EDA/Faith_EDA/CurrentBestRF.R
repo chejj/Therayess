@@ -9,7 +9,7 @@ library(tidyr)
 library(pROC)
 ######PARAMETERS################################################################
 params <- list(
-  num_trees = 5000,
+  num_trees = 500,
   max_depth = 15,
   mtry_fraction = 0.03, # % of features considered at each split
   min_node_size = 20,   # minimum samples per terminal node
@@ -45,10 +45,10 @@ build_combined_features <- function(study) {
   return(combined_mat)
 }
 
-# A: Apply to all studies ----
+# Apply to all studies 
 combined_study_list <- lapply(CRC_progression_studies, build_combined_features)
 
-## Step 2: Find all the shared features #########################################
+## Step 2: Find all the shared features ########################################
 common_features <- Reduce(intersect, lapply(combined_study_list, rownames))
 
 length(common_features)
@@ -61,7 +61,7 @@ combined_study_list_intersection <- lapply(combined_study_list, function(mat) {
 combined_matrix <- do.call(cbind, combined_study_list_intersection)
 dim(combined_matrix)
 
-# C: Build metadata table ----
+# Build metadata table 
 metadata_list <- lapply(CRC_progression_studies, function(study) {
   as.data.frame(colData(study$relative_abundance))
 })
@@ -72,7 +72,7 @@ dim(metadata)
 # optional alignment check
 identical(colnames(combined_matrix), rownames(metadata))
 
-# Step 3: REMOVE HMP-2012 and unwanted classes EARLY ###########################
+## Step 3: REMOVE HMP-2012 and unwanted classes EARLY ##########################
 metadata_filtered <- metadata[
   metadata$study_name != "HMP_2012" &
     !metadata$disease_class %in% c("CRC-M", "PA-M", "CRC-H"),
@@ -99,7 +99,7 @@ prevalence_filter <- function(mat, threshold = 0.1) {
 filtered_matrix <- prevalence_filter(combined_matrix_filtered, 0.1)
 dim(filtered_matrix)
 
-# B: Relative Abundance ---- (FAITH PLEASE EXPLAIN THIS SECTION TO US)
+# B: Relative Abundance (FAITH PLEASE EXPLAIN THIS SECTION TO US)---- 
 rel_abundance <- sweep(filtered_matrix, 2, colSums(filtered_matrix), "/")
 dim(rel_abundance)
 
@@ -205,7 +205,7 @@ table(droplevels(disease_test))
 prop.table(table(droplevels(disease_train)))
 prop.table(table(droplevels(disease_test)))
 
-# C: Convert to data.frame and bind y (ranger prefers formula or full data) ---
+# C: Convert to data.frame and bind y (RF_Class) (ranger prefers formula or full data) ----
 train_df <- data.frame(RF_Class = y_train, X_train)
 test_df  <- data.frame(RF_Class = y_test, X_test)
 
@@ -237,7 +237,20 @@ PNrf_model <- ranger(
 # E. Model Output ----
 PNrf_model
 
-# Step 6: Check against test set ----
+# F: Feature Importance (check which are most influential in splits, discussion/conclusion related?) ----
+
+# Built In
+# sort(importance(PNrf_model), decreasing = TRUE)[1:15]
+
+# Count Splits
+# split_counts <- unlist(
+#   lapply(1:PNrf_model$num.trees, function(t) {
+#     treeInfo(PNrf_model, tree = t)$splitvarName
+#   })
+# )
+# head(sort(table(split_counts, useNA = "no"), decreasing = TRUE), 15)
+
+## Step 7: Check against test set ##############################################
 
 # explicitly drop the classifier so it doesn't get used in prediction as a safeguard
 pred_probs <- predict(PNrf_model, data = test_df[, colnames(test_df) != "RF_Class"])$predictions 
@@ -362,7 +375,7 @@ ggplot(overfit_df, aes(x = Set, y = Accuracy, fill = Set)) +
   ggtitle("Overfitting Check") +
   theme_minimal()
 
-## Step 7: LODO on percentile-normalized data ##################################
+## Step 8: LODO for Cross-Validation ###########################################
 studies <- unique(metadata_filtered$study_name)
 
 set.seed(42)
@@ -377,12 +390,12 @@ lodo_preds <- lapply(studies, function(test_study) {
   y_train_lodo <- y[train_idx]
   y_test_lodo  <- y[test_idx]
   
-  train_df <- data.frame(Truth = y_train_lodo, X_train_lodo)
+  train_df <- data.frame(RF_Class = y_train_lodo, X_train_lodo)
   test_df  <- data.frame(X_test_lodo)
   
   ## OPTION A: DOWN SAMPLING ----
   # Skip if fewer than 2 classes remain in training
-  class_sizes_lodo <- table(train_df$Truth)
+  class_sizes_lodo <- table(train_df$RF_Class)
   if (length(class_sizes_lodo) < 2) {
     return(NULL)
   }
@@ -390,11 +403,11 @@ lodo_preds <- lapply(studies, function(test_study) {
   min_class_lodo <- min(class_sizes_lodo)
   
   balanced_train_df <- train_df %>%
-    dplyr::group_by(Truth) %>%
+    dplyr::group_by(RF_Class) %>%
     dplyr::slice_sample(n = min_class_lodo) %>%
     dplyr::ungroup()
   
-  balanced_train_df$Truth <- droplevels(as.factor(balanced_train_df$Truth))
+  balanced_train_df$RF_Class <- droplevels(as.factor(balanced_train_df$RF_Class))
   
   # ## OPTION B: CLASS WEIGHTING (Like in 80/20 split) ----
   # # Check and prep for class imbalance
@@ -416,8 +429,8 @@ lodo_preds <- lapply(studies, function(test_study) {
     class.weights = class_weights,
 #    mtry = mtry_val,          # See option B above            
     min.node.size = params$min_node_size, 
-    probability = TRUE,        # needed for multiclass probabilities / ROC
-    importance = "impurity",   # feature importance
+    probability = FALSE,        
+    importance = "impurity",   # feature importance (Can see if country is still the most important?)
     #  splitrule = "gini",        # closest standard classification impurity rule in ranger, entropy is not available in ranger
     num.threads = params$num_threads
   )
@@ -433,7 +446,7 @@ lodo_preds <- lapply(studies, function(test_study) {
 
 lodo_preds <- do.call(rbind, lodo_preds)
 
-#Create per study metrics 
+# A: Create per study metrics ----
 lodo_results2 <- lodo_preds %>%
   group_by(Study) %>%
   do({
@@ -442,15 +455,25 @@ lodo_results2 <- lodo_preds %>%
     data.frame(
       N_test = nrow(.),
       Accuracy = as.numeric(cm$overall["Accuracy"]),
-      Kappa = as.numeric(cm$overall["Kappa"])
+      P_Value = as.numeric(cm$overall["AccuracyPValue"]),
+      Kappa = as.numeric(cm$overall["Kappa"]), 
+      Sensitivity = as.numeric(cm$byClass["Sensitivity"]),
+      Specificity = as.numeric(cm$byClass["Specificity"]),
+      Pos_Pred_Value = as.numeric(cm$byClass["Pos Pred Value"]),
+      Neg_Pred_Value = as.numeric(cm$byClass["Neg Pred Value"])
     )
   }) %>%
   ungroup()
 
 lodo_results2
-#get the LODO means 
-mean(lodo_results2$Accuracy)
+
+# B: Get the LODO means ----
+### MEANS MIGHT NOT BE APPROPRIATE?? MIGHT WANT TO DO A WEIGHTED MEAN DO TO SAMPLE SIZE DISCREPANCIES?? Need to look into it more perhaps
+### Would range be a better measure here to show the spread rather than the average?
+mean(lodo_results2$Accuracy) 
 mean(lodo_results2$Kappa)
+mean(lodo_results2$Sensitivity)
+mean(lodo_results2$Pos_Pred_Value)
 
 classes <- levels(factor(lodo_preds$Truth))
 
@@ -470,7 +493,7 @@ kappa_by_class <- lapply(classes, function(cl) {
 kappa_by_class <- do.call(rbind, kappa_by_class)
 kappa_by_class
 
-#Plot Kappas for LODO analysis 
+# C: Plot Kappas for LODO analysis ----
 ggplot(kappa_by_class, aes(x = Class, y = Kappa, fill = Class)) +
   geom_col() +
   ylim(0, 1) +
