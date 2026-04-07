@@ -321,7 +321,20 @@ rm(
   bad_meta,
   criteria_report,
   bad_criteria,
-  zero_sample_report
+  zero_sample_report, 
+  missing_in_memory, 
+  manifest_index, 
+  memory_index,
+  manifest_ok, 
+  out_dir, 
+  file, 
+  QC_CHECK, 
+  required_meta, 
+  study, 
+  type, 
+  manifest_path,
+  i, 
+  focus
 )
 
 message("Temporary QC objects removed from environment.")
