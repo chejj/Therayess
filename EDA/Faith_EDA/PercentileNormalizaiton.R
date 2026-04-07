@@ -240,7 +240,7 @@ lodo_preds <- lapply(studies, function(test_study) {
   rf_lodo <- randomForest(
     x = X_train_lodo,
     y = y_train_lodo,
-    ntree = 200,
+    ntree = 500,
     sampsize = rep(min_class_lodo, length(class_sizes_lodo))
   )
   
@@ -295,8 +295,66 @@ kappa_by_class
 #Plot Kappas for LODO analysis 
 ggplot(kappa_by_class, aes(x = Class, y = Kappa, fill = Class)) +
   geom_col() +
-  ylim(0, 1) +
+  ylim(-0.1, 1) +
   ggtitle("Kappa by Class (LODO + Percentile Normalization)") +
   theme_minimal() +
   guides(fill = "none")
+
+
+
+
+#print results per class for results section 
+classes <- levels(y)
+
+final_results <- lapply(classes, function(cl) {
+  
+  # Binary labels for one-vs-rest
+  truth_bin <- factor(ifelse(lodo_preds$Truth == cl, "Yes", "No"), levels = c("No","Yes"))
+  pred_bin  <- factor(ifelse(lodo_preds$Pred  == cl, "Yes", "No"), levels = c("No","Yes"))
+  
+  # Confusion matrix → F1
+  cm <- confusionMatrix(pred_bin, truth_bin, positive = "Yes")
+  precision <- cm$byClass["Pos Pred Value"]
+  recall <- cm$byClass["Sensitivity"]
+  f1 <- 2 * (precision * recall) / (precision + recall)
+  
+  # ROC → AUC + CI
+  truth_num <- ifelse(lodo_preds$Truth == cl, 1, 0)
+  pred_num  <- ifelse(lodo_preds$Pred  == cl, 1, 0)
+  
+  roc_obj <- roc(truth_num, pred_num, quiet = TRUE)
+  ci_obj <- ci.auc(roc_obj)
+  
+  data.frame(
+    Class = cl,
+    F1 = round(as.numeric(f1), 3),
+    AUC = round(as.numeric(auc(roc_obj)), 3),
+    CI = paste0("[", round(ci_obj[1],3), ", ", round(ci_obj[3],3), "]")
+  )
+})
+
+final_results <- do.call(rbind, final_results)
+
+# order nicely
+final_results$Class <- factor(final_results$Class, levels = c("HC","PA","CRC","Other"))
+final_results <- final_results[order(final_results$Class), ]
+
+final_results
+
+#table plot
+plot_df <- final_results %>%
+  select(Class, F1, AUC) %>%
+  pivot_longer(cols = c(F1, AUC), names_to = "Metric", values_to = "Value")
+
+ggplot(plot_df, aes(x = Class, y = Value, fill = Metric)) +
+  geom_col(position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = round(Value, 2)),
+            position = position_dodge(width = 0.9),
+            vjust = -0.2, size = 4) +
+  ylim(0, 1.05) +
+  ggtitle("LODO + Percentile Normalization: F1 and AUC by Class") +
+  ylab("Score") +
+  theme_minimal()
+
+
 
