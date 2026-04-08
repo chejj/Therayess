@@ -644,7 +644,14 @@ for (heldout_study in study_ids) {
   )
   
   ##### PLOTS: ----
-  cm_plots[[heldout_study]]<- ggplot(cm_df, aes(x = Reference, y = Prediction, fill = Freq)) +
+  cm_df_plot <- as.data.frame(cm$table)
+  
+  cm_df_plot <- cm_df_plot %>%
+    dplyr::group_by(Reference) %>%
+    dplyr::mutate(Percent = Freq / sum(Freq) * 100) %>%
+    dplyr::ungroup()
+  
+  cm_plots[[heldout_study]] <- ggplot(cm_df_plot, aes(x = Reference, y = Prediction, fill = Freq)) +
     geom_tile() +
     geom_text(aes(label = paste0(Freq, "\n(", round(Percent, 1), "%)")), size = 4) +
     scale_fill_gradient(low = "white", high = "darkseagreen") +
@@ -653,7 +660,7 @@ for (heldout_study in study_ids) {
 #      title = "Confusion Matrix",
       subtitle = paste("Held-out study:", heldout_study),
       x = "Actual",
-      y = "Predicted", 
+      y = "Predicted"
     )
   
   auc_plots[[heldout_study]] <- ggplot(roc_df_all, aes(x = FPR, y = TPR, color = Class)) +
