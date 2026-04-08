@@ -11,10 +11,11 @@ library(pROC)
 params <- list(
   num_trees = 500,
   max_depth = 15,
-  mtry_fraction = 0.03, # % of features considered at each split
+  mtry_fraction = 0.01, # % of features considered at each split
   min_node_size = 20,   # minimum samples per terminal node
-  num_threads = 8,       # Set to match HPC core
-  prev_filter = 0.1     # proportion (i.e. 0.1 is 10%) filtered out in prevalence filtering step
+  num_threads = 8,      # Set to match HPC core
+  prev_filter = 0.01,    # proportion filtered out in prevalence filtering step (i.e. 0.1 is 10%)
+  train_split = 0.8     # proportion of the split to delegate for training (i.e. 0.8 is 80/20 split)
 )
 
 # Step 1: Create a matrix for each study ######################################
@@ -118,7 +119,7 @@ length(y)
 ###### i: Run train/test split ----
 set.seed(42)
 
-trainIndex <- createDataPartition(y, p = 0.8, list = FALSE)
+trainIndex <- createDataPartition(y, p = params$train_split, list = FALSE)
 
 X_train <- X[trainIndex, , drop = FALSE]
 X_test  <- X[-trainIndex, , drop = FALSE]
@@ -155,7 +156,8 @@ identical(rownames(filtered_TRAIN_matrix), rownames(metadata_train))
 identical(rownames(filtered_TEST_matrix), rownames(metadata_test))
 
 
-######## B2: Add tiny jitter before percentile normalization ----
+######## B2: Percentile Normalization ----
+# Add tiny jitter before percentile normalization
 set.seed(42)
 
 filtered_TRAIN_matrix <- filtered_TRAIN_matrix + matrix(
@@ -172,12 +174,12 @@ filtered_TEST_matrix <- filtered_TEST_matrix + matrix(
   dimnames = dimnames(filtered_TEST_matrix)
 )
 
-# make sure metadata matches filtered_matrix ----
+# make sure metadata matches filtered_matrix
 set.seed(42)
 identical(rownames(filtered_TRAIN_matrix), rownames(metadata_train))
 identical(rownames(filtered_TEST_matrix), rownames(metadata_test))
 
-######## C:Percentile normalization
+# percentile normalization
 percentile_norm <- function(values, controls) {
   if (length(controls) == 0) {
     return(rep(NA_real_, length(values)))
@@ -187,40 +189,40 @@ percentile_norm <- function(values, controls) {
     mean(controls <= x) * 100
   })
 }
-#define control samples from train only (HC-Normalization)
+# define control samples from train only (HC-Normalization)
 control_idx <- which(metadata_train$disease_class == "HC")
-#extract control matrix
+# extract control matrix
 control_matrix <- filtered_TRAIN_matrix[control_idx, , drop = FALSE]
-#sanity check! 
+# sanity check! 
 length(control_idx)
-#apply percentile normalization to train matrix
+# apply percentile normalization to train matrix
 pnorm_train <- apply(filtered_TRAIN_matrix, 2, function(feature_values) {
   controls <- feature_values[control_idx]
   percentile_norm(feature_values, controls)
 })
-#check
+# check
 dim(pnorm_train)
 summary(as.vector(pnorm_train))
 sum(is.na(pnorm_train))
 
-#repeat with test data cautiously!(make sure using train controls)
+# repeat with test data cautiously!(make sure using train controls)
 pnorm_test <- sapply(seq_len(ncol(filtered_TEST_matrix)), function(j) {
   test_values <- filtered_TEST_matrix[, j]
   train_controls <- filtered_TRAIN_matrix[control_idx, j]
   percentile_norm(test_values, train_controls)
 })
 
-#fix names 
+# fix names 
 pnorm_test <- as.matrix(pnorm_test)
 colnames(pnorm_test) <- colnames(filtered_TEST_matrix)
 rownames(pnorm_test) <- rownames(filtered_TEST_matrix)
 
-#check it 
+# check it 
 dim(pnorm_test)
 summary(as.vector(pnorm_test))
 sum(is.na(pnorm_test))
 
-#### B: Run the ranger RF model
+#### B: Run the ranger RF model ----
 train_df <- data.frame(RF_Class = y_train, pnorm_train, check.names = FALSE)
 test_df  <- data.frame(RF_Class = y_test, pnorm_test, check.names = FALSE)
 
@@ -233,12 +235,14 @@ names(class_weights) <- names(class_counts)
 print(class_counts)
 print(class_weights)
 
+
+# Model
 rf_model <- ranger(
   dependent.variable.name = "RF_Class",
   data = train_df,
   num.trees = params$num_trees,
   max.depth = params$max_depth,
-  mtry = max(1, floor(params$mtry_fraction * (ncol(train_df) - 1))),
+  mtry = max(1, floor(params$mtry_fraction * (ncol(train_df) - 1))), #number of predictor features (minus outcome) * %mtry_fraction
   min.node.size = params$min_node_size,
   probability = TRUE,
   importance = "impurity",
@@ -246,14 +250,16 @@ rf_model <- ranger(
   num.threads = params$num_threads
 )
 
-# Predict on test set
+rf_model
+
+#### C: Predict on test set ----
 pred_probs <- predict(rf_model, data = test_df[, -1])$predictions
 pred_class <- colnames(pred_probs)[max.col(pred_probs)]
 pred_class <- factor(pred_class, levels = levels(y_test))
 
-# Evaluate
+#### D: Evaluate ----
+##### i: Confusion Matrix ----
 cm <- confusionMatrix(pred_class, y_test)
-cm
 
 cm_df <- as.data.frame(cm$table)
 
@@ -270,7 +276,8 @@ ggplot(cm_df, aes(x = Reference, y = Prediction, fill = Freq)) +
   labs(
     title = "Confusion Matrix: Ranger forest",
     x = "Actual",
-    y = "Predicted"
+    y = "Predicted", 
+    caption = "Percentages sum to 100% vertically for the actual classifier."
   )
 # Save summary metrics
 byclass <- cm$byClass
@@ -285,8 +292,6 @@ results_summary <- data.frame(
   balanced_accuracy = as.numeric(byclass["Balanced Accuracy"])
 )
 
-results_summary
-
 # Save everything together
 model_results <- list(
   confusion_matrix = cm,
@@ -297,12 +302,104 @@ model_results <- list(
   summary = results_summary
 )
 
-#print results plz 
+# print results plz 
+
 print(cm)
 print(results_summary)
 
+##### ii. Per-Class F1 Score ----
+if (is.matrix(cm$byClass)) {
+  f1_df <- data.frame(
+    Class = rownames(cm$byClass),
+    F1 = cm$byClass[, "F1"],
+    row.names = NULL
+  )
+} else {
+  f1_df <- data.frame(
+    Class = "Overall_or_Binary",
+    F1 = unname(cm$byClass["F1"])
+  )
+}
+
+f1_df
+
+##### iii. AUC-ROC Curve ----
+# Set up 
+roc_list <- list()       # for AUC
+roc_df_list <- list()    # for plotting
+
+for (class in colnames(pred_probs)) {
+  
+  binary_truth <- ifelse(test_df$RF_Class == class, 1, 0)
+  
+  # Skip if class not present
+  if (sum(binary_truth) == 0 || sum(binary_truth) == length(binary_truth)) next
+  
+  roc_obj <- roc(binary_truth, pred_probs[, class])
+  
+  # Store ROC object
+  roc_list[[class]] <- roc_obj
+  
+  # Store data for ggplot
+  roc_df_list[[class]] <- data.frame(
+    TPR = roc_obj$sensitivities,
+    FPR = 1 - roc_obj$specificities,
+    Class = class
+  )
+}
+
+# Combine for ggplot
+roc_df_all <- dplyr::bind_rows(roc_df_list)
+
+# Plot the ROC Curves 
+ggplot(roc_df_all, aes(x = FPR, y = TPR, color = Class)) +
+  geom_line(linewidth = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +  # random baseline
+  theme_bw() +
+  labs(
+    title = "ROC Curves (One-vs-Rest)",
+    x = "False Positive Rate",
+    y = "True Positive Rate"
+  ) 
+
+# Extract AUC Values
+auc_values <- sapply(roc_list, function(x) auc(x))
+
+auc_df <- data.frame(
+  Class = names(auc_values),
+  AUC = as.numeric(auc_values)
+)
+
+auc_df
+
+##### iv. Overfitting check: compare train vs test accuracy ----
+# Get predicted probabilities  and convert to predicted class
+train_pred_probs <- predict(rf_model, data = train_df)$predictions
+train_pred_class <- colnames(train_pred_probs)[max.col(train_pred_probs)]
+
+test_pred_probs <- predict(rf_model, data = test_df)$predictions
+test_pred_class <- colnames(test_pred_probs)[max.col(test_pred_probs)]
+
+# Compute accuracies
+train_accuracy <- mean(train_pred_class == train_df$RF_Class)
+test_accuracy  <- mean(test_pred_class == test_df$RF_Class)
+
+# Build plotting data frame
+overfit_df <- data.frame(
+  Set = c("Train", "Test"),
+  Accuracy = c(train_accuracy, test_accuracy)
+)
+
+# Plot
+overfit_df
+ggplot(overfit_df, aes(x = Set, y = Accuracy, fill = Set)) +
+  geom_col() +
+  coord_cartesian(ylim = c(0, 1)) +
+  ggtitle("Overfitting Check") +
+  theme_minimal()
+
 # Step 6: Fit LODO RF model ###################################################
-# STEP 1: Set up LODO storage ----
+### A: Set up LODO storage ----
 study_ids <- unique(metadata_filtered$study_name)
 
 lodo_results <- list()
@@ -319,7 +416,7 @@ lodo_metrics <- data.frame(
   balanced_accuracy = numeric(),
   stringsAsFactors = FALSE
 )
-# STEP 2: LODO loop ----
+### B: LODO loop ----
 for (heldout_study in study_ids) {
   
   cat("\nHolding out study:", heldout_study, "\n")
