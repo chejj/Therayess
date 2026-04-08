@@ -228,8 +228,8 @@ test_df  <- data.frame(RF_Class = y_test, pnorm_test, check.names = FALSE)
 
 # Class weights from training fold only
 class_counts <- table(y_train)
-class_weights <- sum(class_counts) / (length(class_counts) * class_counts)
-class_weights <- as.numeric(class_weights)
+class_weights <- sum(class_counts) / (length(class_counts) * class_counts) # Keep as table to keep them "named", ranger prefers this way
+# Do not convert class_weights to numeric using "as.numeric", table is already seen as a numeric in the environment panel
 names(class_weights) <- names(class_counts)
 
 print(class_counts)
@@ -255,7 +255,7 @@ rf_model
 #### C: Predict on test set ----
 pred_probs <- predict(rf_model, data = test_df[, -1])$predictions
 pred_class <- colnames(pred_probs)[max.col(pred_probs)]
-pred_class <- factor(pred_class, levels = levels(y_test))
+pred_class <- factor(pred_class, levels = levels(train_df$RF_Class))
 
 #### D: Evaluate ----
 ##### i: Confusion Matrix ----
@@ -403,6 +403,8 @@ ggplot(overfit_df, aes(x = Set, y = Accuracy, fill = Set)) +
 study_ids <- unique(metadata_filtered$study_name)
 
 lodo_results <- list()
+cm_plots <- list()
+auc_plots <- list()
 
 lodo_metrics <- data.frame(
   heldout_study = character(),
@@ -438,20 +440,230 @@ for (heldout_study in study_ids) {
     cat("Skipping", heldout_study, "- test set has only one class\n")
     next
   }
-}
+  # Skip if training fold has only one class
+  if (length(unique(y_train)) < 2) {
+    cat("Skipping", heldout_study, "- training set has only one class\n")
+    next
+  }
+  #### I: Prep data for model ----
+  ######## A2: Prevalence filtering ----
+  keep_prev_features <- prevalence_filter(X_train, params$prev_filter)
   
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  filtered_TRAIN_matrix <- X_train[, keep_prev_features, drop = FALSE]
+  filtered_TEST_matrix  <- X_test[, keep_prev_features, drop = FALSE]
+  
+  dim(filtered_TRAIN_matrix)
+  dim(filtered_TEST_matrix)
+  
+  # check metadata still aligned
+  identical(rownames(filtered_TRAIN_matrix), rownames(metadata_train))
+  identical(rownames(filtered_TEST_matrix), rownames(metadata_test))
+  
+  ######## B2: Percentile Normalization ----
+  # Add tiny jitter before percentile normalization
+  set.seed(42)
+  
+  filtered_TRAIN_matrix <- filtered_TRAIN_matrix + matrix(
+    runif(length(filtered_TRAIN_matrix), min = 0, max = 1e-9),
+    nrow = nrow(filtered_TRAIN_matrix),
+    ncol = ncol(filtered_TRAIN_matrix),
+    dimnames = dimnames(filtered_TRAIN_matrix)
+  )
+  
+  filtered_TEST_matrix <- filtered_TEST_matrix + matrix(
+    runif(length(filtered_TEST_matrix), min = 0, max = 1e-9),
+    nrow = nrow(filtered_TEST_matrix),
+    ncol = ncol(filtered_TEST_matrix),
+    dimnames = dimnames(filtered_TEST_matrix)
+  )
+  
+  # make sure metadata matches filtered_matrix
+  set.seed(42)
+  if (
+    identical(rownames(filtered_TRAIN_matrix), rownames(metadata_train)) &&
+    identical(rownames(filtered_TEST_matrix), rownames(metadata_test))
+  ) {
+    message("✅ Metadata predictors aligned with train/test samples.")
+  } else {
+    stop("❌ Metadata alignment issues.")
+  }
+  
+  # define control samples from train only (HC-Normalization)
+  control_idx <- which(metadata_train$disease_class == "HC")
+  
+  # extract control matrix
+  control_matrix <- filtered_TRAIN_matrix[control_idx, , drop = FALSE]
+  
+  # apply percentile normalization to train matrix
+  pnorm_train <- apply(filtered_TRAIN_matrix, 2, function(feature_values) {
+    controls <- feature_values[control_idx]
+    percentile_norm(feature_values, controls)
+  })
+  
+  message("Training set percentile normalization complete.")
+  
+  # repeat with test data cautiously!(make sure using train controls)
+  pnorm_test <- sapply(seq_len(ncol(filtered_TEST_matrix)), function(j) {
+    test_values <- filtered_TEST_matrix[, j]
+    train_controls <- filtered_TRAIN_matrix[control_idx, j]
+    percentile_norm(test_values, train_controls)
+  })
+  
+  message("Test set percentile normalization complete.")
+  
+  # fix names 
+  pnorm_test <- as.matrix(pnorm_test)
+  colnames(pnorm_test) <- colnames(filtered_TEST_matrix)
+  rownames(pnorm_test) <- rownames(filtered_TEST_matrix)
+  
+  #### B: Run the ranger RF model ----
+  train_df <- data.frame(RF_Class = y_train, pnorm_train, check.names = FALSE)
+  test_df  <- data.frame(RF_Class = y_test, pnorm_test, check.names = FALSE)
+  
+  # Class weights from training fold only
+  class_counts <- table(y_train)
+  class_weights <- sum(class_counts) / (length(class_counts) * class_counts) # Keep as table to keep them "named", ranger prefers this way
+  # Do not convert class_weights to numeric using "as.numeric", table is already seen as a numeric in the environment panel
+  names(class_weights) <- names(class_counts)
+  
+  print(class_counts)
+  print(class_weights)
+  
+  # Model
+  rf_model_LODO <- ranger(
+    dependent.variable.name = "RF_Class",
+    data = train_df,
+    num.trees = params$num_trees,
+    max.depth = params$max_depth,
+    mtry = max(1, floor(params$mtry_fraction * (ncol(train_df) - 1))), #number of predictor features (minus outcome) * %mtry_fraction
+    min.node.size = params$min_node_size,
+    probability = TRUE,
+    importance = "impurity",
+    class.weights = class_weights,
+    num.threads = params$num_threads
+  )
+  
+  message("Random Forest generation complete")
+  
+  #### C: Predict on test set ----
+  pred_probs <- predict(rf_model_LODO, data = test_df[, -1])$predictions
+  pred_class <- colnames(pred_probs)[max.col(pred_probs)]
+  pred_class <- factor(pred_class, levels = levels(train_df$RF_Class))
+  
+  #### D: Evaluate ----
+  ##### i: Confusion Matrix ----
+  cm <- confusionMatrix(pred_class, y_test)
+  
+  byclass <- cm$byClass
+  
+  results_summary <- data.frame(
+    accuracy = as.numeric(cm$overall["Accuracy"]),
+    kappa = as.numeric(cm$overall["Kappa"]),
+    sensitivity = as.numeric(byclass["Sensitivity"]),
+    specificity = as.numeric(byclass["Specificity"]),
+    pos_pred_value = as.numeric(byclass["Pos Pred Value"]),
+    neg_pred_value = as.numeric(byclass["Neg Pred Value"]),
+    balanced_accuracy = as.numeric(byclass["Balanced Accuracy"])
+  )
+  
+  ##### ii. Per-Class F1 Score ----
+  if (is.matrix(cm$byClass)) {
+    f1_df <- data.frame(
+      Class = rownames(cm$byClass),
+      F1 = cm$byClass[, "F1"],
+      row.names = NULL
+    )
+  } else {
+    f1_df <- data.frame(
+      Class = "Overall_or_Binary",
+      F1 = unname(cm$byClass["F1"])
+    )
+  }
+  
+  ##### iii. AUC-ROC Curve ----
+  roc_list <- list()
+  roc_df_list <- list()
+  
+  for (class in colnames(pred_probs)) {
+    binary_truth <- ifelse(test_df$RF_Class == class, 1, 0)
+    
+    if (sum(binary_truth) == 0 || sum(binary_truth) == length(binary_truth)) next
+    
+    roc_obj <- roc(binary_truth, pred_probs[, class])
+    roc_list[[class]] <- roc_obj
+    
+    roc_df_list[[class]] <- data.frame(
+      TPR = roc_obj$sensitivities,
+      FPR = 1 - roc_obj$specificities,
+      Class = class
+    )
+  }
+  
+  roc_df_all <- dplyr::bind_rows(roc_df_list)
+  
+  auc_values <- sapply(roc_list, function(x) auc(x))
+  auc_df <- data.frame(
+    Class = names(auc_values),
+    AUC = as.numeric(auc_values)
+  )
+  
+  message("Evaluation completed. Now saving results.")
+  
+  #### E: Save everything for this held-out study ----
+  lodo_results[[heldout_study]] <- list(
+    heldout_study = heldout_study,
+    train_study_names = unique(metadata_train$study_name),
+    class_counts = class_counts,
+    class_weights = class_weights,
+    confusion_matrix = cm,
+    confusion_matrix_table = cm$table,
+    pred_probs = pred_probs,
+    pred_class = pred_class,
+    y_test = y_test,
+    f1_df = f1_df,
+    roc_list = roc_list,
+    roc_df_all = roc_df_all,
+    auc_df = auc_df,
+    summary = results_summary
+  )
+  
+  lodo_metrics <- rbind(
+    lodo_metrics,
+    data.frame(
+      heldout_study = heldout_study,
+      n_test = length(y_test),
+      accuracy = results_summary$accuracy,
+      kappa = results_summary$kappa,
+      sensitivity = results_summary$sensitivity,
+      specificity = results_summary$specificity,
+      pos_pred_value = results_summary$pos_pred_value,
+      neg_pred_value = results_summary$neg_pred_value,
+      balanced_accuracy = results_summary$balanced_accuracy,
+      stringsAsFactors = FALSE
+    )
+  )
+  
+  ##### PLOTS: ----
+  cm_plots[[heldout_study]]<- ggplot(cm_df, aes(x = Reference, y = Prediction, fill = Freq)) +
+    geom_tile() +
+    geom_text(aes(label = paste0(Freq, "\n(", round(Percent, 1), "%)")), size = 4) +
+    scale_fill_gradient(low = "white", high = "darkseagreen") +
+    theme_bw() +
+    labs(
+#      title = "Confusion Matrix",
+      subtitle = paste("Held-out study:", heldout_study),
+      x = "Actual",
+      y = "Predicted", 
+    )
+  
+  auc_plots[[heldout_study]] <- ggplot(roc_df_all, aes(x = FPR, y = TPR, color = Class)) +
+    geom_line(linewidth = 1) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed") +  # random baseline
+    theme_bw() +
+    labs(
+#      title = "ROC Curve",
+      subtitle = paste("Held-out study:", heldout_study),
+      x = "False Positive Rate",
+      y = "True Positive Rate"
+    )
+}
