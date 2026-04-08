@@ -11,9 +11,11 @@ library(pROC)
 params <- list(
   num_trees = 500,
   max_depth = 15,
-  mtry_fraction = 0.03, # % of features considered at each split
+  mtry_fraction = 0.01, # % of features considered at each split
   min_node_size = 20,   # minimum samples per terminal node
-  num_threads = 8       # Set to match HPC core
+  num_threads = 8,      # Set to match HPC core
+  prev_filter = 0.01,    # proportion filtered out in prevalence filtering step (i.e. 0.1 is 10%)
+  train_split = 0.8     # proportion of the split to delegate for training (i.e. 0.8 is 80/20 split)
 )
 
 # Step 1: Create a matrix for each study ######################################
@@ -89,74 +91,7 @@ combined_matrix_filtered <- combined_matrix[, rownames(metadata_filtered), drop 
 identical(colnames(combined_matrix_filtered), rownames(metadata_filtered))
 dim(combined_matrix_filtered)
 
-# Step 4: Feature Transformations #############################################
-#### A: Prevalence filtering ----
-prevalence_filter <- function(mat, threshold = 0.1) {
-  prev <- rowSums(mat > 0) / ncol(mat)
-  mat[prev >= threshold, , drop = FALSE]
-}
-
-filtered_matrix <- prevalence_filter(combined_matrix_filtered, 0.1)
-dim(filtered_matrix)
-
-#### B: Percentile Normalization ----
-# Add tiny jitter to reduce ties for percentile normalization
-set.seed(42)
-filtered_matrix <- filtered_matrix + matrix(
-  runif(length(filtered_matrix), min = 0, max = 1e-9),
-  nrow = nrow(filtered_matrix),
-  ncol = ncol(filtered_matrix),
-  dimnames = dimnames(filtered_matrix)
-)
-
-# make sure metadata matches filtered_matrix
-metadata_filtered <- metadata_filtered[colnames(filtered_matrix), , drop = FALSE]
-
-percentile_norm <- function(feature_values, group, control_label = "HC") {
-  controls <- feature_values[group == control_label]
-  
-  if (length(controls) == 0) {
-    return(rep(NA_real_, length(feature_values)))
-  }
-  
-  sapply(feature_values, function(x) {
-    mean(controls <= x) * 100
-  })
-}
-
-batch <- metadata_filtered$study_name
-group <- metadata_filtered$disease_class
-control_label <- "HC"
-
-percentile_matrix <- matrix(
-  NA_real_,
-  nrow = nrow(filtered_matrix),
-  ncol = ncol(filtered_matrix),
-  dimnames = dimnames(filtered_matrix)
-)
-
-for (b in unique(batch)) {
-  idx <- which(batch == b)
-  
-  sub_data <- filtered_matrix[, idx, drop = FALSE]
-  sub_group <- group[idx]
-  
-  if (!any(sub_group == control_label)) next
-  
-  sub_percentile <- apply(sub_data, 1, function(feature) {
-    percentile_norm(feature, sub_group, control_label)
-  })
-  
-  percentile_matrix[, idx] <- t(sub_percentile)
-}
-
-# check result
-dim(percentile_matrix)
-summary(as.vector(percentile_matrix))
-sum(is.na(percentile_matrix))
-
-# Step 5: Create final grouped labels #########################################
-
+# Step 4: Create final grouped labels #########################################
 metadata_filtered$RF_Class <- dplyr::case_when(
   metadata_filtered$disease_class %in% c("HC", "Other") ~ "NEGATIVE_POLYP",
   metadata_filtered$disease_class %in% c("CRC", "CRC+", "CRC-M", "PA", "PA+", "PA-M") ~ "POSITIVE_POLYP",
@@ -168,46 +103,132 @@ metadata_filtered$RF_Class <- dplyr::case_when(
 y2 <- droplevels(metadata_filtered$RF_Class)
 table(y2)
 
-# Step 6: Fit Random Forest ###################################################
+# Step 5: Fit 80/20 Random Forest ###################################################
 #### A: Prep data for model ----
-X <- t(percentile_matrix)
-y <- y2
+X <- t(combined_matrix_filtered)   # rows = samples, cols = features
+y <- metadata_filtered[rownames(X), "RF_Class"] %>% droplevels() #hard locks labels to x row order
 
 dim(X)
 length(y)
 
-#### B: Run test train split ----
+###### i: Run train/test split ----
 set.seed(42)
 
-trainIndex <- createDataPartition(y, p = 0.8, list = FALSE)
+trainIndex <- createDataPartition(y, p = params$train_split, list = FALSE)
 
-X_train <- X[trainIndex, ]
-X_test  <- X[-trainIndex, ]
+X_train <- X[trainIndex, , drop = FALSE]
+X_test  <- X[-trainIndex, , drop = FALSE]
 y_train <- y[trainIndex]
 y_test  <- y[-trainIndex]
+
+# keep metadata separate
+metadata_train <- metadata_filtered[rownames(X_train), , drop = FALSE]
+metadata_test  <- metadata_filtered[rownames(X_test), , drop = FALSE]
+
+identical(rownames(X_train), rownames(metadata_train))
+identical(rownames(X_test), rownames(metadata_test))
 
 prop.table(table(droplevels(y_train)))
 prop.table(table(droplevels(y_test)))
 
-## QC Check: Original CRC Progression Class Splits
-disease_train <- metadata_filtered$disease_class[trainIndex]
-disease_test  <- metadata_filtered$disease_class[-trainIndex]
+###### ii: Feature Transformations ----
+######## A2: Prevalence filtering ----
+prevalence_filter <- function(mat, threshold = params$prev_filter) {
+  prev <- colSums(mat > 0) / nrow(mat)   # because features are columns
+  names(prev[prev >= threshold])
+}
 
-# Check counts 
-table(droplevels(disease_train))
-table(droplevels(disease_test))
+keep_prev_features <- prevalence_filter(X_train, params$prev_filter)
 
-# Check Proportions (could make a ggplot for this to show balance?)
-prop.table(table(droplevels(disease_train)))
-prop.table(table(droplevels(disease_test)))
+filtered_TRAIN_matrix <- X_train[, keep_prev_features, drop = FALSE]
+filtered_TEST_matrix  <- X_test[, keep_prev_features, drop = FALSE]
 
-#### C: Convert to data.frame and bind y (RF_Class) (ranger prefers formula or full data) ----
-train_df <- data.frame(RF_Class = y_train, X_train)
-test_df  <- data.frame(RF_Class = y_test, X_test)
+dim(filtered_TRAIN_matrix)
+dim(filtered_TEST_matrix)
 
-# Check and prep for class imbalance
-class_counts <- table(train_df$RF_Class)
-class_weights <- sum(class_counts) / (length(class_counts) * class_counts)
+# check metadata still aligned
+identical(rownames(filtered_TRAIN_matrix), rownames(metadata_train))
+identical(rownames(filtered_TEST_matrix), rownames(metadata_test))
+
+
+######## B2: Percentile Normalization ----
+# Add tiny jitter before percentile normalization
+set.seed(42)
+
+filtered_TRAIN_matrix <- filtered_TRAIN_matrix + matrix(
+  runif(length(filtered_TRAIN_matrix), min = 0, max = 1e-9),
+  nrow = nrow(filtered_TRAIN_matrix),
+  ncol = ncol(filtered_TRAIN_matrix),
+  dimnames = dimnames(filtered_TRAIN_matrix)
+)
+
+filtered_TEST_matrix <- filtered_TEST_matrix + matrix(
+  runif(length(filtered_TEST_matrix), min = 0, max = 1e-9),
+  nrow = nrow(filtered_TEST_matrix),
+  ncol = ncol(filtered_TEST_matrix),
+  dimnames = dimnames(filtered_TEST_matrix)
+)
+
+# make sure metadata matches filtered_matrix
+set.seed(42)
+identical(rownames(filtered_TRAIN_matrix), rownames(metadata_train))
+identical(rownames(filtered_TEST_matrix), rownames(metadata_test))
+
+# percentile normalization
+percentile_norm <- function(values, controls) {
+  if (length(controls) == 0) {
+    return(rep(NA_real_, length(values)))
+  }
+  
+  sapply(values, function(x) {
+    mean(controls <= x) * 100
+  })
+}
+# define control samples from train only (HC-Normalization)
+control_idx <- which(metadata_train$disease_class == "HC")
+# extract control matrix
+control_matrix <- filtered_TRAIN_matrix[control_idx, , drop = FALSE]
+# sanity check! 
+length(control_idx)
+# apply percentile normalization to train matrix
+pnorm_train <- apply(filtered_TRAIN_matrix, 2, function(feature_values) {
+  controls <- feature_values[control_idx]
+  percentile_norm(feature_values, controls)
+})
+# check
+dim(pnorm_train)
+summary(as.vector(pnorm_train))
+sum(is.na(pnorm_train))
+
+# repeat with test data cautiously!(make sure using train controls)
+pnorm_test <- sapply(seq_len(ncol(filtered_TEST_matrix)), function(j) {
+  test_values <- filtered_TEST_matrix[, j]
+  train_controls <- filtered_TRAIN_matrix[control_idx, j]
+  percentile_norm(test_values, train_controls)
+})
+
+# fix names 
+pnorm_test <- as.matrix(pnorm_test)
+colnames(pnorm_test) <- colnames(filtered_TEST_matrix)
+rownames(pnorm_test) <- rownames(filtered_TEST_matrix)
+
+# check it 
+dim(pnorm_test)
+summary(as.vector(pnorm_test))
+sum(is.na(pnorm_test))
+
+#### B: Set Up ----
+train_df <- data.frame(RF_Class = y_train, pnorm_train, check.names = FALSE)
+test_df  <- data.frame(RF_Class = y_test, pnorm_test, check.names = FALSE)
+
+# Class weights from training fold only
+class_counts <- table(y_train)
+class_weights <- sum(class_counts) / (length(class_counts) * class_counts) # Keep as table to keep them "named", ranger prefers this way
+# Do not convert class_weights to numeric using "as.numeric", table is already seen as a numeric in the environment panel
+names(class_weights) <- names(class_counts)
+
+print(class_counts)
+print(class_weights)
 
 # Number of predictor features (exclude outcome column)
 p <- ncol(train_df) - 1
@@ -216,7 +237,7 @@ p <- ncol(train_df) - 1
 mtry_val <- max(1, ceiling(params$mtry_fraction * p))
 
 #### D: Model Generation ----
-PNrf_model <- ranger(
+rf_model <- ranger(
   dependent.variable.name = "RF_Class", # outcome modeled by all predictors
   data = train_df,                      # training data only
   num.trees = params$num_trees,         
@@ -231,45 +252,77 @@ PNrf_model <- ranger(
 )
 
 #### E. Model Output ----
-PNrf_model
+rf_model
 
 #### F: Feature Importance (check which are most influential in splits, discussion/conclusion related?) ----
 
 # Built In
-# sort(importance(PNrf_model), decreasing = TRUE)[1:15]
+# sort(importance(rf_model), decreasing = TRUE)[1:15]
 
 # Count Splits
 # split_counts <- unlist(
-#   lapply(1:PNrf_model$num.trees, function(t) {
-#     treeInfo(PNrf_model, tree = t)$splitvarName
+#   lapply(1:rf_model$num.trees, function(t) {
+#     treeInfo(rf_model, tree = t)$splitvarName
 #   })
 # )
 # head(sort(table(split_counts, useNA = "no"), decreasing = TRUE), 15)
 
 # Step 7: Check against test set ##############################################
-
 # explicitly drop the classifier so it doesn't get used in prediction as a safeguard
-pred_probs <- predict(PNrf_model, data = test_df[, colnames(test_df) != "RF_Class"])$predictions 
-
+pred_probs <- predict(rf_model, data = test_df[, colnames(test_df) != "RF_Class"])$predictions 
 pred_class <- colnames(pred_probs)[max.col(pred_probs)]
+pred_class <- factor(pred_class, levels = levels(train_df$RF_Class))
 
-#### A. Confusion Matrix ----
-
-cm <- confusionMatrix(
-  factor(pred_class, levels = levels(train_df$RF_Class)),
-  factor(test_df$RF_Class, levels = levels(train_df$RF_Class))
-)
-cm
+#### A: Confusion Matrix ----
+cm <- confusionMatrix(pred_class, y_test)
 
 cm_df <- as.data.frame(cm$table)
+
+# Add percentages (row-wise = % of actual class)
+cm_df <- cm_df %>%
+  group_by(Reference) %>%
+  mutate(Percent = Freq / sum(Freq) * 100)
+
 ggplot(cm_df, aes(x = Reference, y = Prediction, fill = Freq)) +
   geom_tile() +
-  geom_text(aes(label = Freq), size = 5) +
-  scale_fill_gradient(low = "white", high = "steelblue") +
+  geom_text(aes(label = paste0(Freq, "\n(", round(Percent, 1), "%)")), size = 4) +
+  scale_fill_gradient(low = "white", high = "darkseagreen") +
   theme_bw() +
-  labs(title = "Confusion Matrix: Random Forest")
+  labs(
+    title = "Confusion Matrix: Ranger forest",
+    x = "Actual",
+    y = "Predicted", 
+    caption = "Percentages sum to 100% vertically for the actual classifier."
+  )
+# Save summary metrics
+byclass <- cm$byClass
 
-#### B. Per-Class F1 Score ----
+results_summary <- data.frame(
+  accuracy = as.numeric(cm$overall["Accuracy"]),
+  kappa = as.numeric(cm$overall["Kappa"]),
+  sensitivity = as.numeric(byclass["Sensitivity"]),
+  specificity = as.numeric(byclass["Specificity"]),
+  pos_pred_value = as.numeric(byclass["Pos Pred Value"]),
+  neg_pred_value = as.numeric(byclass["Neg Pred Value"]),
+  balanced_accuracy = as.numeric(byclass["Balanced Accuracy"])
+)
+
+# Save everything together
+model_results <- list(
+  confusion_matrix = cm,
+  pred_probs = pred_probs,
+  pred_class = pred_class,
+  y_test = y_test,
+  class_weights = class_weights,
+  summary = results_summary
+)
+
+# print results plz 
+
+print(cm)
+print(results_summary)
+
+#### B: F1 Score ----
 if (is.matrix(cm$byClass)) {
   f1_df <- data.frame(
     Class = rownames(cm$byClass),
@@ -285,13 +338,8 @@ if (is.matrix(cm$byClass)) {
 
 f1_df
 
-ggplot(f1_df, aes(x = Class, y = F1)) +
-  geom_col() +
-  theme_bw() +
-  labs(title = "Per-Class F1 Score", y = "F1 Score")
-
-#### C. AUC-ROC Curve (Multiclass) ----
-# i. Set up ---
+#### C: AUC-ROC Curve ----
+# Set up 
 roc_list <- list()       # for AUC
 roc_df_list <- list()    # for plotting
 
@@ -318,7 +366,7 @@ for (class in colnames(pred_probs)) {
 # Combine for ggplot
 roc_df_all <- dplyr::bind_rows(roc_df_list)
 
-# ii. Plot the ROC Curves ---
+# Plot the ROC Curves 
 ggplot(roc_df_all, aes(x = FPR, y = TPR, color = Class)) +
   geom_line(linewidth = 1) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed") +  # random baseline
@@ -329,7 +377,7 @@ ggplot(roc_df_all, aes(x = FPR, y = TPR, color = Class)) +
     y = "True Positive Rate"
   ) 
 
-# iii. Extract AUC Values ---
+# Extract AUC Values
 auc_values <- sapply(roc_list, function(x) auc(x))
 
 auc_df <- data.frame(
@@ -338,31 +386,26 @@ auc_df <- data.frame(
 )
 
 auc_df
-ggplot(auc_df, aes(x = Class, y = AUC)) +
-  geom_col() +
-  coord_cartesian(ylim = c(0, 1)) +
-  theme_bw() +
-  labs(title = "AUC by Class")
 
-#### D. Overfitting check: compare train vs test accuracy ----
-# i. Get predicted probabilities  and convert to predicted class
-train_pred_probs <- predict(PNrf_model, data = train_df)$predictions
+#### D: Overfitting check: compare train vs test accuracy ----
+# Get predicted probabilities  and convert to predicted class
+train_pred_probs <- predict(rf_model, data = train_df)$predictions
 train_pred_class <- colnames(train_pred_probs)[max.col(train_pred_probs)]
 
-test_pred_probs <- predict(PNrf_model, data = test_df)$predictions
+test_pred_probs <- predict(rf_model, data = test_df)$predictions
 test_pred_class <- colnames(test_pred_probs)[max.col(test_pred_probs)]
 
-# ii. Compute accuracies
+# Compute accuracies
 train_accuracy <- mean(train_pred_class == train_df$RF_Class)
 test_accuracy  <- mean(test_pred_class == test_df$RF_Class)
 
-# iii. Build plotting data frame
+# Build plotting data frame
 overfit_df <- data.frame(
   Set = c("Train", "Test"),
   Accuracy = c(train_accuracy, test_accuracy)
 )
 
-# iv. Plot
+# Plot
 overfit_df
 ggplot(overfit_df, aes(x = Set, y = Accuracy, fill = Set)) +
   geom_col() +
@@ -370,128 +413,279 @@ ggplot(overfit_df, aes(x = Set, y = Accuracy, fill = Set)) +
   ggtitle("Overfitting Check") +
   theme_minimal()
 
-# Step 8: LODO for Cross-Validation ############################################
-studies <- unique(metadata_filtered$study_name)
+# Step 6: Fit LODO RF model ####################################################
+### A: Set up LODO storage ----
+study_ids <- unique(metadata_filtered$study_name)
 
-set.seed(42)
-lodo_preds <- lapply(studies, function(test_study) {
+lodo_results <- list()
+cm_plots <- list()
+auc_plots <- list()
+
+lodo_metrics <- data.frame(
+  heldout_study = character(),
+  n_test = integer(),
+  accuracy = numeric(),
+  kappa = numeric(),
+  sensitivity = numeric(),
+  specificity = numeric(),
+  pos_pred_value = numeric(),
+  neg_pred_value = numeric(),
+  balanced_accuracy = numeric(),
+  stringsAsFactors = FALSE
+)
+### B: LODO loop ----
+for (heldout_study in study_ids) {
   
-  test_idx  <- which(metadata_filtered$study_name == test_study)
-  train_idx <- which(metadata_filtered$study_name != test_study)
+  cat("\nHolding out study:", heldout_study, "\n")
   
-  X_train_lodo <- X[train_idx, , drop = FALSE]
-  X_test_lodo  <- X[test_idx, , drop = FALSE]
+  train_idx <- metadata_filtered$study_name != heldout_study
+  test_idx  <- metadata_filtered$study_name == heldout_study
   
-  y_train_lodo <- y[train_idx]
-  y_test_lodo  <- y[test_idx]
+  X_train <- X[train_idx, , drop = FALSE]
+  X_test  <- X[test_idx, , drop = FALSE]
   
-  train_df <- data.frame(RF_Class = y_train_lodo, X_train_lodo)
-  test_df  <- data.frame(X_test_lodo)
+  y_train <- y[train_idx]
+  y_test  <- y[test_idx]
   
-  ## OPTION A: DOWN SAMPLING ----
-  # Skip if fewer than 2 classes remain in training
-  class_sizes_lodo <- table(train_df$RF_Class)
-  if (length(class_sizes_lodo) < 2) {
-    return(NULL)
+  metadata_train <- metadata_filtered[train_idx, , drop = FALSE]
+  metadata_test  <- metadata_filtered[test_idx, , drop = FALSE]
+  
+  # quick skip if held-out study has only one class
+  if (length(unique(y_test)) < 2) {
+    cat("Skipping", heldout_study, "- test set has only one class\n")
+    next
+  }
+  # Skip if training fold has only one class
+  if (length(unique(y_train)) < 2) {
+    cat("Skipping", heldout_study, "- training set has only one class\n")
+    next
+  }
+  #### I: Prep data for model ----
+  ######## A2: Prevalence filtering ----
+  keep_prev_features <- prevalence_filter(X_train, params$prev_filter)
+  
+  filtered_TRAIN_matrix <- X_train[, keep_prev_features, drop = FALSE]
+  filtered_TEST_matrix  <- X_test[, keep_prev_features, drop = FALSE]
+  
+  dim(filtered_TRAIN_matrix)
+  dim(filtered_TEST_matrix)
+  
+  # check metadata still aligned
+  identical(rownames(filtered_TRAIN_matrix), rownames(metadata_train))
+  identical(rownames(filtered_TEST_matrix), rownames(metadata_test))
+  
+  ######## B2: Percentile Normalization ----
+  # Add tiny jitter before percentile normalization
+  set.seed(42)
+  
+  filtered_TRAIN_matrix <- filtered_TRAIN_matrix + matrix(
+    runif(length(filtered_TRAIN_matrix), min = 0, max = 1e-9),
+    nrow = nrow(filtered_TRAIN_matrix),
+    ncol = ncol(filtered_TRAIN_matrix),
+    dimnames = dimnames(filtered_TRAIN_matrix)
+  )
+  
+  filtered_TEST_matrix <- filtered_TEST_matrix + matrix(
+    runif(length(filtered_TEST_matrix), min = 0, max = 1e-9),
+    nrow = nrow(filtered_TEST_matrix),
+    ncol = ncol(filtered_TEST_matrix),
+    dimnames = dimnames(filtered_TEST_matrix)
+  )
+  
+  # make sure metadata matches filtered_matrix
+  set.seed(42)
+  if (
+    identical(rownames(filtered_TRAIN_matrix), rownames(metadata_train)) &&
+    identical(rownames(filtered_TEST_matrix), rownames(metadata_test))
+  ) {
+    message("✅ Metadata predictors aligned with train/test samples.")
+  } else {
+    stop("❌ Metadata alignment issues.")
   }
   
-  min_class_lodo <- min(class_sizes_lodo)
+  # define control samples from train only (HC-Normalization)
+  control_idx <- which(metadata_train$disease_class == "HC")
   
-  balanced_train_df <- train_df %>%
-    dplyr::group_by(RF_Class) %>%
-    dplyr::slice_sample(n = min_class_lodo) %>%
-    dplyr::ungroup()
+  # extract control matrix
+  control_matrix <- filtered_TRAIN_matrix[control_idx, , drop = FALSE]
   
-  balanced_train_df$RF_Class <- droplevels(as.factor(balanced_train_df$RF_Class))
+  # apply percentile normalization to train matrix
+  pnorm_train <- apply(filtered_TRAIN_matrix, 2, function(feature_values) {
+    controls <- feature_values[control_idx]
+    percentile_norm(feature_values, controls)
+  })
   
-  # ## OPTION B: CLASS WEIGHTING (Like in 80/20 split) ----
-  # # Check and prep for class imbalance
-  # class_counts <- table(train_df$RF_Class)
-  # class_weights <- sum(class_counts) / (length(class_counts) * class_counts)
-  # 
-  # # Number of predictor features (exclude outcome column)
-  # p <- ncol(train_df) - 1
-  # 
-  # # Set mtry to X% of total predictors, or 1, whichever is larger
-  # mtry_val <- max(1, ceiling(params$mtry_fraction * p))
-  # balanced_train_df <- train_df
+  message("Training set percentile normalization complete.")
   
-  rg_lodo <- ranger(
-    dependent.variable.name = "RF_Class", # outcome modeled by all predictors
-    data = balanced_train_df,                      # training data only
-    num.trees = params$num_trees,         
+  # repeat with test data cautiously!(make sure using train controls)
+  pnorm_test <- sapply(seq_len(ncol(filtered_TEST_matrix)), function(j) {
+    test_values <- filtered_TEST_matrix[, j]
+    train_controls <- filtered_TRAIN_matrix[control_idx, j]
+    percentile_norm(test_values, train_controls)
+  })
+  
+  message("Test set percentile normalization complete.")
+  
+  # fix names 
+  pnorm_test <- as.matrix(pnorm_test)
+  colnames(pnorm_test) <- colnames(filtered_TEST_matrix)
+  rownames(pnorm_test) <- rownames(filtered_TEST_matrix)
+  
+  #### B: Run the ranger RF model ----
+  train_df <- data.frame(RF_Class = y_train, pnorm_train, check.names = FALSE)
+  test_df  <- data.frame(RF_Class = y_test, pnorm_test, check.names = FALSE)
+  
+  # Class weights from training fold only
+  class_counts <- table(y_train)
+  class_weights <- sum(class_counts) / (length(class_counts) * class_counts) # Keep as table to keep them "named", ranger prefers this way
+  # Do not convert class_weights to numeric using "as.numeric", table is already seen as a numeric in the environment panel
+  names(class_weights) <- names(class_counts)
+  
+  print(class_counts)
+  print(class_weights)
+  
+  # Model
+  rf_model_LODO <- ranger(
+    dependent.variable.name = "RF_Class",
+    data = train_df,
+    num.trees = params$num_trees,
     max.depth = params$max_depth,
+    mtry = max(1, floor(params$mtry_fraction * (ncol(train_df) - 1))), #number of predictor features (minus outcome) * %mtry_fraction
+    min.node.size = params$min_node_size,
+    probability = TRUE,
+    importance = "impurity",
     class.weights = class_weights,
-#    mtry = mtry_val,          # See option B above            
-    min.node.size = params$min_node_size, 
-    probability = FALSE,        
-    importance = "impurity",   # feature importance (Can see if country is still the most important?)
-    #  splitrule = "gini",        # closest standard classification impurity rule in ranger, entropy is not available in ranger
     num.threads = params$num_threads
   )
   
-  pred_lodo <- predict(rg_lodo, data = test_df)$predictions
+  message("Random Forest generation complete")
   
-  data.frame(
-    Study = test_study,
-    Truth = y_test_lodo,
-    Pred = pred_lodo
+  #### C: Predict on test set ----
+  pred_probs <- predict(rf_model_LODO, data = test_df[, -1])$predictions
+  pred_class <- colnames(pred_probs)[max.col(pred_probs)]
+  pred_class <- factor(pred_class, levels = levels(train_df$RF_Class))
+  
+  #### D: Evaluate ----
+  ##### i: Confusion Matrix ----
+  cm <- confusionMatrix(pred_class, y_test)
+  
+  byclass <- cm$byClass
+  
+  results_summary <- data.frame(
+    accuracy = as.numeric(cm$overall["Accuracy"]),
+    kappa = as.numeric(cm$overall["Kappa"]),
+    sensitivity = as.numeric(byclass["Sensitivity"]),
+    specificity = as.numeric(byclass["Specificity"]),
+    pos_pred_value = as.numeric(byclass["Pos Pred Value"]),
+    neg_pred_value = as.numeric(byclass["Neg Pred Value"]),
+    balanced_accuracy = as.numeric(byclass["Balanced Accuracy"])
   )
-})
-
-lodo_preds <- do.call(rbind, lodo_preds)
-
-#### A: Create per study metrics ----
-lodo_results2 <- lodo_preds %>%
-  group_by(Study) %>%
-  do({
-    cm <- confusionMatrix(.$Pred, .$Truth)
-    
-    data.frame(
-      N_test = nrow(.),
-      Accuracy = as.numeric(cm$overall["Accuracy"]),
-      P_Value = as.numeric(cm$overall["AccuracyPValue"]),
-      Kappa = as.numeric(cm$overall["Kappa"]), 
-      Sensitivity = as.numeric(cm$byClass["Sensitivity"]),
-      Specificity = as.numeric(cm$byClass["Specificity"]),
-      Pos_Pred_Value = as.numeric(cm$byClass["Pos Pred Value"]),
-      Neg_Pred_Value = as.numeric(cm$byClass["Neg Pred Value"])
+  
+  ##### ii. Per-Class F1 Score ----
+  if (is.matrix(cm$byClass)) {
+    f1_df <- data.frame(
+      Class = rownames(cm$byClass),
+      F1 = cm$byClass[, "F1"],
+      row.names = NULL
     )
-  }) %>%
-  ungroup()
-
-lodo_results2
-
-#### B: Get the LODO means ----
-### MEANS MIGHT NOT BE APPROPRIATE?? MIGHT WANT TO DO A WEIGHTED MEAN DO TO SAMPLE SIZE DISCREPANCIES?? Need to look into it more perhaps
-### Would range be a better measure here to show the spread rather than the average?
-mean(lodo_results2$Accuracy) 
-mean(lodo_results2$Kappa)
-mean(lodo_results2$Sensitivity)
-mean(lodo_results2$Pos_Pred_Value)
-
-classes <- levels(factor(lodo_preds$Truth))
-
-kappa_by_class <- lapply(classes, function(cl) {
+  } else {
+    f1_df <- data.frame(
+      Class = "Overall_or_Binary",
+      F1 = unname(cm$byClass["F1"])
+    )
+  }
   
-  truth_bin <- factor(ifelse(lodo_preds$Truth == cl, "Yes", "No"))
-  pred_bin  <- factor(ifelse(lodo_preds$Pred == cl, "Yes", "No"))
+  ##### iii. AUC-ROC Curve ----
+  roc_list <- list()
+  roc_df_list <- list()
   
-  cm <- confusionMatrix(pred_bin, truth_bin)
+  for (class in colnames(pred_probs)) {
+    binary_truth <- ifelse(test_df$RF_Class == class, 1, 0)
+    
+    if (sum(binary_truth) == 0 || sum(binary_truth) == length(binary_truth)) next
+    
+    roc_obj <- roc(binary_truth, pred_probs[, class])
+    roc_list[[class]] <- roc_obj
+    
+    roc_df_list[[class]] <- data.frame(
+      TPR = roc_obj$sensitivities,
+      FPR = 1 - roc_obj$specificities,
+      Class = class
+    )
+  }
   
-  data.frame(
-    Class = cl,
-    Kappa = as.numeric(cm$overall["Kappa"])
+  roc_df_all <- dplyr::bind_rows(roc_df_list)
+  
+  auc_values <- sapply(roc_list, function(x) auc(x))
+  auc_df <- data.frame(
+    Class = names(auc_values),
+    AUC = as.numeric(auc_values)
   )
-})
-
-kappa_by_class <- do.call(rbind, kappa_by_class)
-kappa_by_class
-
-#### C: Plot Kappas for LODO analysis ----
-ggplot(kappa_by_class, aes(x = Class, y = Kappa, fill = Class)) +
-  geom_col() +
-  ylim(0, 1) +
-  ggtitle("Kappa by Class (LODO + Percentile Normalization)") +
-  theme_minimal() +
-  guides(fill = "none")
+  
+  message("Evaluation completed. Now saving results.")
+  
+  #### E: Save everything for this held-out study ----
+  lodo_results[[heldout_study]] <- list(
+    heldout_study = heldout_study,
+    train_study_names = unique(metadata_train$study_name),
+    class_counts = class_counts,
+    class_weights = class_weights,
+    confusion_matrix = cm,
+    confusion_matrix_table = cm$table,
+    pred_probs = pred_probs,
+    pred_class = pred_class,
+    y_test = y_test,
+    f1_df = f1_df,
+    roc_list = roc_list,
+    roc_df_all = roc_df_all,
+    auc_df = auc_df,
+    summary = results_summary
+  )
+  
+  lodo_metrics <- rbind(
+    lodo_metrics,
+    data.frame(
+      heldout_study = heldout_study,
+      n_test = length(y_test),
+      accuracy = results_summary$accuracy,
+      kappa = results_summary$kappa,
+      sensitivity = results_summary$sensitivity,
+      specificity = results_summary$specificity,
+      pos_pred_value = results_summary$pos_pred_value,
+      neg_pred_value = results_summary$neg_pred_value,
+      balanced_accuracy = results_summary$balanced_accuracy,
+      stringsAsFactors = FALSE
+    )
+  )
+  
+  ##### PLOTS: ----
+  cm_df_plot <- as.data.frame(cm$table)
+  
+  cm_df_plot <- cm_df_plot %>%
+    dplyr::group_by(Reference) %>%
+    dplyr::mutate(Percent = Freq / sum(Freq) * 100) %>%
+    dplyr::ungroup()
+  
+  cm_plots[[heldout_study]] <- ggplot(cm_df_plot, aes(x = Reference, y = Prediction, fill = Freq)) +
+    geom_tile() +
+    geom_text(aes(label = paste0(Freq, "\n(", round(Percent, 1), "%)")), size = 4) +
+    scale_fill_gradient(low = "white", high = "darkseagreen") +
+    theme_bw() +
+    labs(
+      #      title = "Confusion Matrix",
+      subtitle = paste("Held-out study:", heldout_study),
+      x = "Actual",
+      y = "Predicted"
+    )
+  
+  auc_plots[[heldout_study]] <- ggplot(roc_df_all, aes(x = FPR, y = TPR, color = Class)) +
+    geom_line(linewidth = 1) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed") +  # random baseline
+    theme_bw() +
+    labs(
+      #      title = "ROC Curve",
+      subtitle = paste("Held-out study:", heldout_study),
+      x = "False Positive Rate",
+      y = "True Positive Rate"
+    )
+}
