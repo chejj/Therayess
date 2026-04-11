@@ -237,6 +237,8 @@ run_inner_lodo <- function(X_train_all, y_train_all, metadata_train_all, tune_gr
     skipped_folds <- character(0)
 
     for (validation_study in inner_studies) {
+      
+      message("Inner loop validation study: ", validation_study)
       inner_train_idx <- metadata_train_all$study_name != validation_study
       inner_valid_idx <- metadata_train_all$study_name == validation_study
 
@@ -261,7 +263,9 @@ run_inner_lodo <- function(X_train_all, y_train_all, metadata_train_all, tune_gr
         top_n_features = params$top_n_features,
         min_feature_variance = params$min_feature_variance
       )
-
+      
+      message("Normalization complete.")
+      
       if (is.null(norm_data)) {
         skipped_folds <- c(skipped_folds, validation_study)
         next
@@ -278,7 +282,9 @@ run_inner_lodo <- function(X_train_all, y_train_all, metadata_train_all, tune_gr
         mtry_fraction = grid_row$mtry_fraction,
         num_threads = params$num_threads
       )
-
+      
+      message("Model generation complete.")
+      
       valid_probs <- predict(rf_model, data = valid_df[, -1, drop = FALSE])$predictions[, params$positive_class]
 
       oof_truth <- c(oof_truth, as.character(y_inner_valid))
@@ -322,8 +328,10 @@ run_inner_lodo <- function(X_train_all, y_train_all, metadata_train_all, tune_gr
       inner_threshold = threshold_fit$threshold,
       completed_inner_folds = length(fold_details)
     )
-  }
 
+    message("Added to tuning results list.")  }
+
+  
   tuning_results_df <- bind_rows(tuning_results) %>%
     arrange(desc(inner_f1), desc(completed_inner_folds))
 
@@ -381,6 +389,8 @@ X <- t(combined_matrix_filtered)
 y <- droplevels(metadata_filtered[rownames(X), "RF_Class"])
 
 stopifnot(identical(rownames(X), rownames(metadata_filtered)))
+
+message("Data prep complete.")
 
 ## TUNING GRID #################################################################
 tune_grid <- expand.grid(
@@ -460,6 +470,8 @@ for (heldout_study in study_ids) {
     mtry_fraction = best_params$mtry_fraction,
     num_threads = params$num_threads
   )
+  
+  message("Model Generation Complete.")
 
   positive_probs <- predict(rf_model, data = test_df[, -1, drop = FALSE])$predictions[, params$positive_class]
 
@@ -501,6 +513,8 @@ for (heldout_study in study_ids) {
       x = "False Positive Rate",
       y = "True Positive Rate"
     )
+  
+  message("Plotting complete.")
 
   lodo_results[[heldout_study]] <- list(
     heldout_study = heldout_study,
