@@ -9,11 +9,12 @@ library(tidyr)
 library(pROC)
 ######PARAMETERS################################################################
 params <- list(
-  num_trees = 500,
-  max_depth = 15,
-  mtry_fraction = 0.01, # % of features considered at each split
-  min_node_size = 20,   # minimum samples per terminal node
+  num_trees = 3000,
+  max_depth = 10,
+  mtry_fraction = 0.03, # % of features considered at each split
+  min_node_size = 15,   # minimum samples per terminal node
   num_threads = 8,      # Set to match HPC core
+  splitrule = "gini",   # options: "gini", "extratrees" or "hellinger"
   prev_filter = 0.01,    # proportion filtered out in prevalence filtering step (i.e. 0.1 is 10%)
   train_split = 0.8     # proportion of the split to delegate for training (i.e. 0.8 is 80/20 split)
 )
@@ -247,7 +248,7 @@ rf_model <- ranger(
   min.node.size = params$min_node_size, 
   probability = TRUE,        # needed for multiclass probabilities / ROC
   importance = "impurity",   # feature importance
-#  splitrule = "gini",        # closest standard classification impurity rule in ranger, entropy is not available in ranger
+  splitrule = params$splitrule,        # default is "gini", which minimizes probability of misclassification
   num.threads = params$num_threads
 )
 
