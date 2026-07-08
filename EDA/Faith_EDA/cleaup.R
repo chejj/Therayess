@@ -9,12 +9,11 @@ library(tidyr)
 library(pROC)
 ######PARAMETERS################################################################
 params <- list(
-  num_trees = 3000,
-  max_depth = 10,
-  mtry_fraction = 0.03, # % of features considered at each split
-  min_node_size = 15,   # minimum samples per terminal node
+  num_trees = 500,
+  max_depth = 15,
+  mtry_fraction = 0.01, # % of features considered at each split
+  min_node_size = 20,   # minimum samples per terminal node
   num_threads = 8,      # Set to match HPC core
-  splitrule = "gini",   # options: "gini", "extratrees" or "hellinger"
   prev_filter = 0.01,    # proportion filtered out in prevalence filtering step (i.e. 0.1 is 10%)
   train_split = 0.8     # proportion of the split to delegate for training (i.e. 0.8 is 80/20 split)
 )
@@ -66,10 +65,14 @@ dim(combined_matrix)
 
 # Build metadata table 
 metadata_list <- lapply(CRC_progression_studies, function(study) {
-  as.data.frame(colData(study$relative_abundance))
+  df <- as.data.frame(colData(study$relative_abundance))
+  df$sample_id <- rownames(df)
+  df
 })
 
 metadata <- bind_rows(metadata_list)
+rownames(metadata) <- metadata$sample_id
+metadata$sample_id <- NULL
 dim(metadata)
 
 # optional alignment check
@@ -93,12 +96,13 @@ identical(colnames(combined_matrix_filtered), rownames(metadata_filtered))
 dim(combined_matrix_filtered)
 
 # Step 4: Create final grouped labels #########################################
+
 metadata_filtered$RF_Class <- dplyr::case_when(
   metadata_filtered$disease_class %in% c("HC", "Other") ~ "NEGATIVE_POLYP",
-  metadata_filtered$disease_class %in% c("CRC", "CRC+", "CRC-M", "PA", "PA+", "PA-M") ~ "POSITIVE_POLYP",
+  metadata_filtered$disease_class %in% c("CRC", "CRC+", "PA", "PA+") ~ "POSITIVE_POLYP",
   TRUE ~ NA_character_
-) %>% as.factor() %>% factor(levels = c("POSITIVE_POLYP", "NEGATIVE_POLYP")  # 1st = positive class, 2nd = reference
-)
+) %>% 
+  factor(levels = c("POSITIVE_POLYP", "NEGATIVE_POLYP"))
 
 
 y2 <- droplevels(metadata_filtered$RF_Class)
@@ -218,7 +222,7 @@ dim(pnorm_test)
 summary(as.vector(pnorm_test))
 sum(is.na(pnorm_test))
 
-#### B: Set Up ----
+#### B: Run the ranger RF model ----
 train_df <- data.frame(RF_Class = y_train, pnorm_train, check.names = FALSE)
 test_df  <- data.frame(RF_Class = y_test, pnorm_test, check.names = FALSE)
 
@@ -231,50 +235,30 @@ names(class_weights) <- names(class_counts)
 print(class_counts)
 print(class_weights)
 
-# Number of predictor features (exclude outcome column)
-p <- ncol(train_df) - 1
 
-# Set mtry to X% of total predictors, or 1, whichever is larger
-mtry_val <- max(1, ceiling(params$mtry_fraction * p))
-
-#### D: Model Generation ----
+# Model
 rf_model <- ranger(
-  dependent.variable.name = "RF_Class", # outcome modeled by all predictors
-  data = train_df,                      # training data only
-  num.trees = params$num_trees,         
+  dependent.variable.name = "RF_Class",
+  data = train_df,
+  num.trees = params$num_trees,
   max.depth = params$max_depth,
+  mtry = max(1, floor(params$mtry_fraction * (ncol(train_df) - 1))), #number of predictor features (minus outcome) * %mtry_fraction
+  min.node.size = params$min_node_size,
+  probability = TRUE,
+  importance = "impurity",
   class.weights = class_weights,
-  mtry = mtry_val,                      
-  min.node.size = params$min_node_size, 
-  probability = TRUE,        # needed for multiclass probabilities / ROC
-  importance = "impurity",   # feature importance
-  splitrule = params$splitrule,        # default is "gini", which minimizes probability of misclassification
   num.threads = params$num_threads
 )
 
-#### E. Model Output ----
 rf_model
 
-#### F: Feature Importance (check which are most influential in splits, discussion/conclusion related?) ----
-
-# Built In
-# sort(importance(rf_model), decreasing = TRUE)[1:15]
-
-# Count Splits
-# split_counts <- unlist(
-#   lapply(1:rf_model$num.trees, function(t) {
-#     treeInfo(rf_model, tree = t)$splitvarName
-#   })
-# )
-# head(sort(table(split_counts, useNA = "no"), decreasing = TRUE), 15)
-
-# Step 7: Check against test set ##############################################
-# explicitly drop the classifier so it doesn't get used in prediction as a safeguard
-pred_probs <- predict(rf_model, data = test_df[, colnames(test_df) != "RF_Class"])$predictions 
+#### C: Predict on test set ----
+pred_probs <- predict(rf_model, data = test_df[, -1])$predictions
 pred_class <- colnames(pred_probs)[max.col(pred_probs)]
 pred_class <- factor(pred_class, levels = levels(train_df$RF_Class))
 
-#### A: Confusion Matrix ----
+#### D: Evaluate ----
+##### i: Confusion Matrix ----
 cm <- confusionMatrix(pred_class, y_test)
 
 cm_df <- as.data.frame(cm$table)
@@ -323,7 +307,7 @@ model_results <- list(
 print(cm)
 print(results_summary)
 
-#### B: F1 Score ----
+##### ii. Per-Class F1 Score ----
 if (is.matrix(cm$byClass)) {
   f1_df <- data.frame(
     Class = rownames(cm$byClass),
@@ -339,7 +323,7 @@ if (is.matrix(cm$byClass)) {
 
 f1_df
 
-#### C: AUC-ROC Curve ----
+##### iii. AUC-ROC Curve ----
 # Set up 
 roc_list <- list()       # for AUC
 roc_df_list <- list()    # for plotting
@@ -388,7 +372,7 @@ auc_df <- data.frame(
 
 auc_df
 
-#### D: Overfitting check: compare train vs test accuracy ----
+##### iv. Overfitting check: compare train vs test accuracy ----
 # Get predicted probabilities  and convert to predicted class
 train_pred_probs <- predict(rf_model, data = train_df)$predictions
 train_pred_class <- colnames(train_pred_probs)[max.col(train_pred_probs)]
@@ -414,7 +398,7 @@ ggplot(overfit_df, aes(x = Set, y = Accuracy, fill = Set)) +
   ggtitle("Overfitting Check") +
   theme_minimal()
 
-# Step 6: Fit LODO RF model ####################################################
+# Step 6: Fit LODO RF model ###################################################
 ### A: Set up LODO storage ----
 study_ids <- unique(metadata_filtered$study_name)
 
@@ -673,7 +657,7 @@ for (heldout_study in study_ids) {
     scale_fill_gradient(low = "white", high = "darkseagreen") +
     theme_bw() +
     labs(
-      #      title = "Confusion Matrix",
+#      title = "Confusion Matrix",
       subtitle = paste("Held-out study:", heldout_study),
       x = "Actual",
       y = "Predicted"
@@ -684,7 +668,7 @@ for (heldout_study in study_ids) {
     geom_abline(slope = 1, intercept = 0, linetype = "dashed") +  # random baseline
     theme_bw() +
     labs(
-      #      title = "ROC Curve",
+#      title = "ROC Curve",
       subtitle = paste("Held-out study:", heldout_study),
       x = "False Positive Rate",
       y = "True Positive Rate"

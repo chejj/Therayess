@@ -7,7 +7,7 @@
 #---------------------------------------------
 library(SummarizedExperiment)
 library(TreeSummarizedExperiment)
-library(randomForest)
+library(ranger)
 library(caret)
 library(ggplot2)
 library(dplyr)
@@ -202,49 +202,82 @@ X_test  <- X[-trainIndex, ]
 y_train <- y[trainIndex]
 y_test  <- y[-trainIndex]
 
-length(y_train)
-length(y_test)
-table(y_train)
-table(y_test)
+# Convert to data.frame and bind y (ranger prefers formula or full data)
+train_df <- data.frame(y = y_train, X_train)
+test_df  <- data.frame(X_test)
 
-#Percentile normalization RF model
-PNrf_model <- randomForest(
-  x = X_train,
-  y = y_train,
-  ntree = 500,
-  importance = FALSE
+PNrf_model <- ranger(
+  dependent.variable.name = "y", # outcome modeled by all predictors
+  data = train_df,
+  num.trees = 200,
+  importance = "none",     
+  classification = TRUE    # explicit for clarity
 )
 
-predPN <- predict(PNrf_model, X_test)
+# Kaitlyn's Pipeline Model. Use this to further tune the above with more parameters?
+# rf_fit <- ranger(
+#   dependent.variable.name = "RF_Class", # outcome modeled by all predictors
+#   data = train_df,                      # training data only
+#   num.trees = params$num_trees,         # start with 500 trees, approach 10000
+#   max.depth = params$max_depth,         # How many splits the tree goes to. Reduces specificity but also reduces overfitting
+#   class.weights = class_weights,        # Formula: sum(class_counts) / (length(class_counts) * class_counts)
+#   mtry = mtry_val,                      # % of features considered at each split. Uses formula: max(1, ceiling(params$mtry_fraction * p))
+#   min.node.size = params$min_node_size, # minimum samples per terminal node. Currently set to 20 in Kaitlyn's pipeline
+#   probability = TRUE,                   # needed for multiclass probabilities / ROC plotting
+#   importance = "impurity",              # feature importance, so we can interpret for discussion
+#   splitrule = "gini",                   # closest standard classification impurity rule in ranger, entropy is not available in ranger
+#   num.threads = params$num_threads      # match HPC core request, set to 8 in Kaitlyn's pipeline
+# )
+
+predPN <- predict(PNrf_model, data = test_df)$predictions
 confusionMatrix(predPN, y_test)
 
 
 ########################################
 # LODO on percentile-normalized data
 ########################################
+studies <- unique(metadata_filtered$study_name)
 
+set.seed(42)
 lodo_preds <- lapply(studies, function(test_study) {
   
   test_idx  <- which(metadata_filtered$study_name == test_study)
   train_idx <- which(metadata_filtered$study_name != test_study)
   
-  X_train_lodo <- X[train_idx, ]
-  X_test_lodo  <- X[test_idx, ]
+  X_train_lodo <- X[train_idx, , drop = FALSE]
+  X_test_lodo  <- X[test_idx, , drop = FALSE]
   
   y_train_lodo <- y[train_idx]
   y_test_lodo  <- y[test_idx]
   
-  class_sizes_lodo <- table(y_train_lodo)
+  train_df <- data.frame(Truth = y_train_lodo, X_train_lodo)
+  test_df  <- data.frame(X_test_lodo)
+  
+  # Skip if fewer than 2 classes remain in training
+  class_sizes_lodo <- table(train_df$Truth)
+  if (length(class_sizes_lodo) < 2) {
+    return(NULL)
+  }
+  
   min_class_lodo <- min(class_sizes_lodo)
   
-  rf_lodo <- randomForest(
-    x = X_train_lodo,
-    y = y_train_lodo,
-    ntree = 500,
-    sampsize = rep(min_class_lodo, length(class_sizes_lodo))
+  balanced_train_df <- train_df %>%
+    dplyr::group_by(Truth) %>%
+    dplyr::slice_sample(n = min_class_lodo) %>%
+    dplyr::ungroup()
+  
+  balanced_train_df$Truth <- droplevels(as.factor(balanced_train_df$Truth))
+  
+  rg_lodo <- ranger(
+    dependent.variable.name = "Truth",
+    data = balanced_train_df,
+    num.trees = 200,
+    classification = TRUE,
+    probability = FALSE,
+    importance = "none"
   )
   
-  pred_lodo <- predict(rf_lodo, X_test_lodo)
+  pred_lodo <- predict(rg_lodo, data = test_df)$predictions
   
   data.frame(
     Study = test_study,
@@ -274,7 +307,7 @@ lodo_results2
 mean(lodo_results2$Accuracy)
 mean(lodo_results2$Kappa)
 
-classes <- levels(y)
+classes <- levels(factor(lodo_preds$Truth))
 
 kappa_by_class <- lapply(classes, function(cl) {
   
@@ -295,66 +328,8 @@ kappa_by_class
 #Plot Kappas for LODO analysis 
 ggplot(kappa_by_class, aes(x = Class, y = Kappa, fill = Class)) +
   geom_col() +
-  ylim(-0.1, 1) +
+  ylim(0, 1) +
   ggtitle("Kappa by Class (LODO + Percentile Normalization)") +
   theme_minimal() +
   guides(fill = "none")
-
-
-
-
-#print results per class for results section 
-classes <- levels(y)
-
-final_results <- lapply(classes, function(cl) {
-  
-  # Binary labels for one-vs-rest
-  truth_bin <- factor(ifelse(lodo_preds$Truth == cl, "Yes", "No"), levels = c("No","Yes"))
-  pred_bin  <- factor(ifelse(lodo_preds$Pred  == cl, "Yes", "No"), levels = c("No","Yes"))
-  
-  # Confusion matrix → F1
-  cm <- confusionMatrix(pred_bin, truth_bin, positive = "Yes")
-  precision <- cm$byClass["Pos Pred Value"]
-  recall <- cm$byClass["Sensitivity"]
-  f1 <- 2 * (precision * recall) / (precision + recall)
-  
-  # ROC → AUC + CI
-  truth_num <- ifelse(lodo_preds$Truth == cl, 1, 0)
-  pred_num  <- ifelse(lodo_preds$Pred  == cl, 1, 0)
-  
-  roc_obj <- roc(truth_num, pred_num, quiet = TRUE)
-  ci_obj <- ci.auc(roc_obj)
-  
-  data.frame(
-    Class = cl,
-    F1 = round(as.numeric(f1), 3),
-    AUC = round(as.numeric(auc(roc_obj)), 3),
-    CI = paste0("[", round(ci_obj[1],3), ", ", round(ci_obj[3],3), "]")
-  )
-})
-
-final_results <- do.call(rbind, final_results)
-
-# order nicely
-final_results$Class <- factor(final_results$Class, levels = c("HC","PA","CRC","Other"))
-final_results <- final_results[order(final_results$Class), ]
-
-final_results
-
-#table plot
-plot_df <- final_results %>%
-  select(Class, F1, AUC) %>%
-  pivot_longer(cols = c(F1, AUC), names_to = "Metric", values_to = "Value")
-
-ggplot(plot_df, aes(x = Class, y = Value, fill = Metric)) +
-  geom_col(position = position_dodge(width = 0.9)) +
-  geom_text(aes(label = round(Value, 2)),
-            position = position_dodge(width = 0.9),
-            vjust = -0.2, size = 4) +
-  ylim(0, 1.05) +
-  ggtitle("LODO + Percentile Normalization: F1 and AUC by Class") +
-  ylab("Score") +
-  theme_minimal()
-
-
 
