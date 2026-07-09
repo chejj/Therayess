@@ -33,7 +33,7 @@ range(mat, na.rm = TRUE)
 library(curatedMetagenomicData)  # for mergeData
 library(SummarizedExperiment)
 
-merge_studies <- function(nested, type) {
+merge_all_studies <- function(nested, type) {
   objs <- lapply(nested, `[[`, type) # extracts the objects for one type, objs becomes a list with one element per study
   objs <- objs[!vapply(objs, is.null, logical(1))] # removes missing entries, returns logical TRUE/FALSE vector, that's flipped to drop nulls
   mergeData(objs)
