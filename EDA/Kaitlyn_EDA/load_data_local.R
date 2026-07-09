@@ -12,7 +12,7 @@ suppressPackageStartupMessages({
 })
 
 # --- Manifest ---
-out_dir <- "/data/courses/class_lsc585spring2026_ndixit5/Therayess/data"
+out_dir <- "EDA/Kaitlyn_EDA/data/collect/"
 manifest_path <- file.path(out_dir, "manifest.csv")
 
 stopifnot(file.exists(manifest_path))
