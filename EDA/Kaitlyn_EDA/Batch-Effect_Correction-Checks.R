@@ -13,6 +13,7 @@ suppressPackageStartupMessages({
   library(MMUPHin)
 #  BiocManager::install("sva") # COMBAT
 #  BiocManager::install("MMUPHin")
+#  BiocManager::install("curatedMetagenomicData")
 })
 
 ## Merge Studies and create objects --------
@@ -148,243 +149,214 @@ percentile_norm <- function(feature_values, group, control_label = "HC") {
   }, numeric(1))
 }
 
-### TAXA ----
-taxa_versions$percentile <- matrix(
-  NA_real_,
-  nrow = nrow(taxa_versions$control),
-  ncol = ncol(taxa_versions$control),
-  dimnames = dimnames(taxa_versions$control)
-)
-
-for (b in unique(batch)) {
-  idx <- which(batch == b)
-  sub_data <- taxa_versions$control[idx, , drop = FALSE]  # rows = samples
-  sub_group <- group[idx]
+percentile_normalize_by_study <- function(control_mat,
+                                          batch,
+                                          group,
+                                          control_label = "HC",
+                                          feature_name = NULL,
+                                          verbose = TRUE) {
+  mat <- as.matrix(control_mat)
+  storage.mode(mat) <- "numeric"
   
-  if (!any(sub_group == control_label)) {
-    next
+  batch <- as.character(batch)
+  group <- as.character(group)
+  
+  out <- matrix(
+    NA_real_,
+    nrow = nrow(mat),
+    ncol = ncol(mat),
+    dimnames = dimnames(mat)
+  )
+  
+  missing_studies <- character(0)
+  
+  for (b in unique(batch)) {
+    idx <- which(batch == b)
+    sub_data <- mat[idx, , drop = FALSE]
+    sub_group <- group[idx]
+    
+    if (!any(sub_group == control_label, na.rm = TRUE)) {
+      missing_studies <- c(missing_studies, b)
+      next
+    }
+    
+    sub_percentile <- matrix(
+      NA_real_,
+      nrow = nrow(sub_data),
+      ncol = ncol(sub_data),
+      dimnames = dimnames(sub_data)
+    )
+    
+    for (j in seq_len(ncol(sub_data))) {
+      sub_percentile[, j] <- percentile_norm(
+        feature_values = sub_data[, j],
+        group = sub_group,
+        control_label = control_label
+      )
+    }
+    
+    out[idx, ] <- sub_percentile
   }
   
-  # apply over columns = features
-  sub_percentile <- apply(sub_data, 2, function(feature) {
-    percentile_norm(feature, sub_group, control_label)
-  })
+  missing_studies <- unique(missing_studies)
   
-  # result is samples x features
-  taxa_versions$percentile[idx, ] <- sub_percentile
-}
-message("Taxa percentile normalization complete")
-
-# Catch if Percentile normalization cannot be performed
-missing_studies <- unique(batch[apply(is.na(taxa_versions$percentile), 1, any)])
-
-if (length(missing_studies) > 0) {
-  message(
-    "Percentile normalization could not be performed for: ",
-    paste(missing_studies, collapse = ", ")
+  if (verbose) {
+    message("[", feature_name, "] Percentile normalization complete.")
+    
+    if (length(missing_studies) > 0) {
+      message(
+        "[", feature_name, "] Percentile normalization could not be performed for: ",
+        paste(missing_studies, collapse = ", ")
+      )
+    }
+  }
+  
+  list(
+    percentile = out,
+    missing_studies = missing_studies
   )
 }
+
+### TAXA ----
+
+taxa_pct <- percentile_normalize_by_study(
+  control_mat = taxa_versions$control,
+  batch = batch,
+  group = group,
+  control_label = control_label,
+  feature_name = "Taxa"
+)
+
+taxa_versions$percentile <- taxa_pct$percentile
 
 ### PAB ----
-pab_versions$percentile <- matrix(
-  NA_real_,
-  nrow = nrow(pab_versions$control),
-  ncol = ncol(pab_versions$control),
-  dimnames = dimnames(pab_versions$control)
+pab_pct <- percentile_normalize_by_study(
+  control_mat = pab_versions$control,
+  batch = batch,
+  group = group,
+  control_label = control_label,
+  method_name = "Pathway Abundance"
 )
 
-for (b in unique(batch)) {
-  idx <- which(batch == b)
-  sub_data <- pab_versions$control[idx, , drop = FALSE]  # rows = samples
-  sub_group <- group[idx]
-  
-  if (!any(sub_group == control_label)) {
-    next
-  }
-  
-  # apply over columns = features
-  sub_percentile <- apply(sub_data, 2, function(feature) {
-    percentile_norm(feature, sub_group, control_label)
-  })
-  
-  # result is samples x features
-  pab_versions$percentile[idx, ] <- sub_percentile
-}
-message("Pathway Abundance percentile normalization complete")
-
-# Catch if Percentile normalization cannot be performed
-missing_studies <- unique(batch[apply(is.na(pab_versions$percentile), 1, any)])
-
-if (length(missing_studies) > 0) {
-  message(
-    "Percentile normalization could not be performed for: ",
-    paste(missing_studies, collapse = ", ")
-  )
-}
+pab_versions$percentile <- pab_pct$percentile
 
 ### PCOV ----
-pcov_versions$percentile <- matrix(
-  NA_real_,
-  nrow = nrow(pcov_versions$control),
-  ncol = ncol(pcov_versions$control),
-  dimnames = dimnames(pcov_versions$control)
+pcov_pct <- percentile_normalize_by_study(
+  control_mat = pcov_versions$control,
+  batch = batch,
+  group = group,
+  control_label = control_label,
+  method_name = "Pathway Coverage"
 )
 
-for (b in unique(batch)) {
-  idx <- which(batch == b)
-  sub_data <- pcov_versions$control[idx, , drop = FALSE]  # rows = samples
-  sub_group <- group[idx]
-  
-  if (!any(sub_group == control_label)) {
-    next
-  }
-  
-  # apply over columns = features
-  sub_percentile <- apply(sub_data, 2, function(feature) {
-    percentile_norm(feature, sub_group, control_label)
-  })
-  
-  # result is samples x features
-  pcov_versions$percentile[idx, ] <- sub_percentile
-}
-message("Pathway Coverage percentile normalization complete")
-
-# Catch if Percentile normalization cannot be performed
-missing_studies <- unique(batch[apply(is.na(pcov_versions$percentile), 1, any)])
-
-if (length(missing_studies) > 0) {
-  message(
-    "Percentile normalization could not be performed for: ",
-    paste(missing_studies, collapse = ", ")
-  )
-}
+pcov_versions$percentile <- pcov_pct$percentile
 
 # C: COMBAT ----
+run_combat <- function(control_mat,
+                       metadata,
+                       batch,
+                       method_name = NULL) {
+  
+  # ComBat expects features x samples, so transpose in and out (currently in samples x features)
+  combat_input <- t(control_mat)
+  
+  # preserve disease_class so batch correction does not remove biology
+  mod <- model.matrix(
+    ~ disease_class,
+    data = metadata
+  )
+  
+  combat_corrected <- ComBat(
+    dat = combat_input,
+    batch = factor(batch),
+    mod = mod,
+    par.prior = TRUE,
+    prior.plots = FALSE
+  )
+  
+  message("[", method_name, "] COMBAT correction complete.")
+  
+  t(combat_corrected)
+}
+
 ### TAXA ----
-# ComBat expects features x samples, so transpose in and out (currently in samples x features)
-combat_input <- t(taxa_versions$control)
-
-# preserve disease_class so batch correction does not remove biology
-mod <- model.matrix(~ disease_class, data = studies_meta_df)
-
-combat_corrected <- ComBat(
-  dat = combat_input,
-  batch = factor(batch),
-  mod = mod,
-  par.prior = TRUE,
-  prior.plots = FALSE
+taxa_versions$combat <- run_combat(
+  control_mat = taxa_versions$control,
+  metadata = studies_meta_df,
+  batch = batch,
+  method_name = "Taxa"
 )
-
-taxa_versions$combat <- t(combat_corrected)
-message("Taxa COMBAT correction complete.")
 
 ### PAB ----
-# ComBat expects features x samples, so transpose in and out (currently in samples x features)
-combat_input <- t(pab_versions$control)
-
-# preserve disease_class so batch correction does not remove biology
-mod <- model.matrix(~ disease_class, data = studies_meta_df)
-
-combat_corrected <- ComBat(
-  dat = combat_input,
-  batch = factor(batch),
-  mod = mod,
-  par.prior = TRUE,
-  prior.plots = FALSE
+pab_versions$combat <- run_combat(
+  control_mat = pab_versions$control,
+  metadata = studies_meta_df,
+  batch = batch,
+  method_name = "Pathway Abundance"
 )
 
-pab_versions$combat <- t(combat_corrected)
-message("Pathway Abundance COMBAT correction complete.")
 
 ### PCOV ----
-# ComBat expects features x samples, so transpose in and out (currently in samples x features)
-combat_input <- t(pcov_versions$control)
-
-# preserve disease_class so batch correction does not remove biology
-mod <- model.matrix(~ disease_class, data = studies_meta_df)
-
-combat_corrected <- ComBat(
-  dat = combat_input,
-  batch = factor(batch),
-  mod = mod,
-  par.prior = TRUE,
-  prior.plots = FALSE
+pcov_versions$combat <- run_combat(
+  control_mat = pcov_versions$control,
+  metadata = studies_meta_df,
+  batch = batch,
+  method_name = "Pathway Coverage"
 )
-
-pcov_versions$combat <- t(combat_corrected)
-message("Pathway Coverage COMBAT correction complete.")
 
 # D: MMUPHin ----
-### TAXA ----
-# MMUPHin expects features x samples and a proportion, so transpose and convert percentages to proportion
-mmuphin_input <- t(taxa_versions$control)
-
-max_val <- max(mmuphin_input, na.rm = TRUE)
-scale_factor <- 1
-
-if (max_val > 1 && max_val <= 100) {
-  mmuphin_input <- mmuphin_input / 100
-  scale_factor <- 100
+run_mmuphin <- function(control_mat,
+                        metadata,
+                        method_name = NULL) {
+  
+  # MMUPHin expects features x samples
+  mmuphin_input <- t(control_mat)
+  
+  # Convert percentages to proportions if needed
+  max_val <- max(mmuphin_input, na.rm = TRUE)
+  scale_factor <- 1
+  
+  if (max_val > 1 && max_val <= 100) {
+    mmuphin_input <- mmuphin_input / 100
+    scale_factor <- 100
+  }
+  
+  mmuphin_fit <- adjust_batch(
+    feature_abd = mmuphin_input,
+    batch = "study_name",
+    covariates = "disease_class",
+    data = metadata,
+    control = list(verbose = FALSE)
+  )
+  
+  message("[", method_name, "] MMUPHin correction complete.")
+  
+  t(mmuphin_fit$feature_abd_adj) * scale_factor
 }
 
-mmuphin_fit <- adjust_batch(
-  feature_abd = mmuphin_input,
-  batch = "study_name",
-  covariates = c("disease_class"),
-  data = studies_meta_df,
-  control = list(verbose = FALSE)
+### TAXA ----
+taxa_versions$mmuphin <- run_mmuphin(
+  control_mat = taxa_versions$control,
+  metadata = studies_meta_df,
+  method_name = "Taxa"
 )
 
-taxa_versions$mmuphin <- t(mmuphin_fit$feature_abd_adj) * scale_factor
-message("Taxa MMUPHin correction complete.")
 
 ### PAB ----
-# MMUPHin expects features x samples and a proportion, so transpose and convert percentages to proportion
-mmuphin_input <- t(pab_versions$control)
-
-max_val <- max(mmuphin_input, na.rm = TRUE)
-scale_factor <- 1
-
-if (max_val > 1 && max_val <= 100) {
-  mmuphin_input <- mmuphin_input / 100
-  scale_factor <- 100
-}
-
-mmuphin_fit <- adjust_batch(
-  feature_abd = mmuphin_input,
-  batch = "study_name",
-  covariates = c("disease_class"),
-  data = studies_meta_df,
-  control = list(verbose = FALSE)
+pab_versions$mmuphin <- run_mmuphin(
+  control_mat = pab_versions$control,
+  metadata = studies_meta_df,
+  method_name = "Pathway Abundance"
 )
-
-pab_versions$mmuphin <- t(mmuphin_fit$feature_abd_adj) * scale_factor
-message("Pathway Abundance MMUPHin correction complete.")
 
 ### PCOV ----
-# MMUPHin expects features x samples and a proportion, so transpose and convert percentages to proportion
-mmuphin_input <- t(pcov_versions$control)
-
-max_val <- max(mmuphin_input, na.rm = TRUE)
-scale_factor <- 1
-
-if (max_val > 1 && max_val <= 100) {
-  mmuphin_input <- mmuphin_input / 100
-  scale_factor <- 100
-}
-
-mmuphin_fit <- adjust_batch(
-  feature_abd = mmuphin_input,
-  batch = "study_name",
-  covariates = c("disease_class"),
-  data = studies_meta_df,
-  control = list(verbose = FALSE)
+pcov_versions$mmuphin <- run_mmuphin(
+  control_mat = pcov_versions$control,
+  metadata = studies_meta_df,
+  method_name = "Pathway Coverage"
 )
 
-pcov_versions$mmuphin <- t(mmuphin_fit$feature_abd_adj) * scale_factor
-message("Pathway Coverage MMUPHin correction complete.")
-
-# PCOA #########################################################################
+# PCoA #########################################################################
 dist_methods <- c(
   control = "bray",
   percentile = "bray",
@@ -540,7 +512,7 @@ taxa_pcoa_results$combat$plot_df %>%
   scale_color_manual(values = progression_colors, name = progression_legend_title) +
   theme_bw() +
   labs(
-    title = "PCoA (ComBat)",
+    title = "PCoA (ComBat), Colored by Disease",
     x = paste0("PCoA1 (", round(pcoa_results$combat$variance_explained[1] * 100, 1), "%)"),
     y = paste0("PCoA2 (", round(pcoa_results$combat$variance_explained[2] * 100, 1), "%)")
   )
@@ -551,146 +523,111 @@ taxa_pcoa_results$combat$plot_df %>%
   stat_ellipse(level = 0.95) +
   theme_bw() +
   labs(
-    title = "PCoA (ComBat) Colored by Study",
+    title = "PCoA (ComBat), Colored by Study",
     x = paste0("PCoA1 (", round(pcoa_results$combat$variance_explained[1] * 100, 1), "%)"),
     y = paste0("PCoA2 (", round(pcoa_results$combat$variance_explained[2] * 100, 1), "%)")
   )
 
 ## Faceted Together ----
-## TAXA ----
-taxa_pcoa_df %>% 
-  filter(disease_class %in% c(
-    "HC",
-    "PA",
-    "PA+",
-    "CRC",
-    "CRC+",
-    "Other"
-  )) %>%
-  ggplot(aes(PC1, PC2, color = disease_class)) +
-  geom_point(alpha = 0.6) +
-  stat_ellipse(level = 0.95) +
-  facet_wrap(~method, scales = "free") +
-  scale_color_manual(
-    values = progression_colors,
-    name = progression_legend_title
+plot_pcoa <- function(pcoa_df,
+                      color_by = c("disease_class", "study_name"),
+                      dataset_name = "Relative Abundance",
+                      disease_filter = c("HC", "PA", "PA+", "CRC", "CRC+", "Other"),
+                      show_ellipses = TRUE) {
+  
+  color_by <- match.arg(color_by)
+  
+  plot_df <- pcoa_df %>%
+    filter(disease_class %in% disease_filter)
+  
+  p <- ggplot(
+    plot_df,
+    aes(PC1, PC2, color = .data[[color_by]])
   ) +
-  theme_bw() +
-  labs(
-    title = "PCoA of Relative Abundance, Colored by CRC Progression Classifier",
-    x = "PCoA1",
-    y = "PCoA2"
-  )
+    geom_point(alpha = 0.6)
+  
+  if (show_ellipses) {
+    p <- p +
+      stat_ellipse(level = 0.95)
+  }
+  
+  p <- p +
+    facet_wrap(~method, scales = "free") +
+    theme_bw()
+  
+  if (color_by == "disease_class") {
+    
+    p <- p +
+      scale_color_manual(
+        values = progression_colors,
+        name = progression_legend_title
+      ) +
+      labs(
+        title = paste0(
+          "PCoA of ",
+          dataset_name,
+          ", Colored by CRC Progression Classifier"
+        ),
+        x = "PCoA1",
+        y = "PCoA2"
+      )
+    
+  } else {
+    
+    p <- p +
+      labs(
+        title = paste0(
+          "PCoA of ",
+          dataset_name,
+          ", Colored by Study"
+        ),
+        x = "PCoA1",
+        y = "PCoA2"
+      )
+    
+  }
+  
+  p
+}
 
-taxa_pcoa_df %>% 
-  filter(disease_class %in% c(
-    "HC",
-    "PA",
-    "PA+",
-    "CRC",
-    "CRC+",
-    "Other"
-  )) %>%
-  ggplot(aes(PC1, PC2, color = study_name)) +
-  geom_point(alpha = 0.6) +
-  stat_ellipse(level = 0.95) +
-  facet_wrap(~method, scales = "free") +
-  theme_bw() +
-  labs(
-    title = "PCoA of Relative Abundance, Colored by Study",
-    x = "PCoA1",
-    y = "PCoA2"
-  )
+## TAXA ----
+plot_pcoa(
+  taxa_pcoa_df,
+  color_by = "disease_class",
+  dataset_name = "Relative Abundance"
+)
+
+plot_pcoa(
+  taxa_pcoa_df,
+  color_by = "study_name",
+  dataset_name = "Relative Abundance"
+)
 
 ## PAB ----
-pab_pcoa_df %>% 
-  filter(disease_class %in% c(
-    "HC",
-    "PA",
-    "PA+",
-    "CRC",
-    "CRC+",
-    "Other"
-  )) %>%
-  ggplot(aes(PC1, PC2, color = disease_class)) +
-  geom_point(alpha = 0.6) +
-  stat_ellipse(level = 0.95) +
-  facet_wrap(~method, scales = "free") +
-  scale_color_manual(
-    values = progression_colors,
-    name = progression_legend_title
-  ) +
-  theme_bw() +
-  labs(
-    title = "PCoA of Pathway Abundance, Colored by CRC Progression Classifier",
-    x = "PCoA1",
-    y = "PCoA2"
-  )
+plot_pcoa(
+  pab_pcoa_df,
+  color_by = "disease_class",
+  dataset_name = "Pathway Abundance"
+)
 
-pab_pcoa_df %>% 
-  filter(disease_class %in% c(
-    "HC",
-    "PA",
-    "PA+",
-    "CRC",
-    "CRC+",
-    "Other"
-  )) %>%
-  ggplot(aes(PC1, PC2, color = study_name)) +
-  geom_point(alpha = 0.6) +
-  stat_ellipse(level = 0.95) +
-  facet_wrap(~method, scales = "free") +
-  theme_bw() +
-  labs(
-    title = "PCoA of Pathway Abundance, Colored by Study",
-    x = "PCoA1",
-    y = "PCoA2"
-  )
+plot_pcoa(
+  pab_pcoa_df,
+  color_by = "study_name",
+  dataset_name = "Pathway Abundance"
+)
 
 ## PCOV ----
-pcov_pcoa_df %>% 
-  filter(disease_class %in% c(
-    "HC",
-    "PA",
-    "PA+",
-    "CRC",
-    "CRC+",
-    "Other"
-  )) %>%
-  ggplot(aes(PC1, PC2, color = disease_class)) +
-  geom_point(alpha = 0.6) +
-  stat_ellipse(level = 0.95) +
-  facet_wrap(~method, scales = "free") +
-  scale_color_manual(
-    values = progression_colors,
-    name = progression_legend_title
-  ) +
-  theme_bw() +
-  labs(
-    title = "PCoA of Pathway Coverage, Colored by CRC Progression Classifier",
-    x = "PCoA1",
-    y = "PCoA2"
-  )
+plot_pcoa(
+  pcov_pcoa_df,
+  color_by = "disease_class",
+  dataset_name = "Pathway Coverage"
+)
 
-pcov_pcoa_df %>% 
-  filter(disease_class %in% c(
-    "HC",
-    "PA",
-    "PA+",
-    "CRC",
-    "CRC+",
-    "Other"
-  )) %>%
-  ggplot(aes(PC1, PC2, color = study_name)) +
-  geom_point(alpha = 0.6) +
-  stat_ellipse(level = 0.95) +
-  facet_wrap(~method, scales = "free") +
-  theme_bw() +
-  labs(
-    title = "PCoA of Pathway Coverage, Colored by Study",
-    x = "PCoA1",
-    y = "PCoA2"
-  )
+plot_pcoa(
+  pcov_pcoa_df,
+  color_by = "study_name",
+  dataset_name = "Pathway Coverage"
+)
 
 # Statistical Support ##########################################################
 evaluate_batch_effect <- function(pcoa_result, metadata) {
