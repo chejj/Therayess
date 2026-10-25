@@ -119,7 +119,7 @@ control_label <- "HC" # baseline group or control
 ## A: Log-transformation ----
 
 ### TAXA ----
-# summary(rowSums(taxa)) # if values are all ~100, next lines can be skipped
+# summary(rowSums(taxa)) # if values are all ~100, next line can be skipped
 ## log_rel <- sweep(log_taxa, 2, colSums(log_taxa), "/") # Not required, as cMD3 already does this step (above line as proof)
 taxa_versions$log <- log10(taxa_versions$control + 1e-6)
 message("Taxa log transformation complete")
