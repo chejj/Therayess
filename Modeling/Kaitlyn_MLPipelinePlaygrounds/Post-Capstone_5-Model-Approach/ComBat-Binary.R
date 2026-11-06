@@ -13,13 +13,13 @@ suppressPackageStartupMessages({
 })
 ###### PARAMETERS ##############################################################
 params <- list(
-  num_trees = 500,
-  max_depth = 10,
-  mtry_fraction = 0.03, # % of features considered at each split
-  min_node_size = 15,   # minimum samples per terminal node
+  num_trees = 5000,
+  max_depth = NULL,
+  mtry_fraction = NULL, # % of features considered at each split
+  min_node_size = NULL,   # minimum samples per terminal node
   num_threads = 8,      # Set to match HPC core
   splitrule = "gini",   # options: "gini", "extratrees" or "hellinger"
-  prev_filter = 0.01,    # proportion filtered out in prevalence filtering step (i.e. 0.1 is 10%)
+  prev_filter = 0.00,    # proportion filtered out in prevalence filtering step (i.e. 0.1 is 10%)
   train_split = 0.8,     # proportion of the split to delegate for training (i.e. 0.8 is 80/20 split)
   class_keep = c(
     "HC",
@@ -185,8 +185,7 @@ group <- studies_meta_df$RF_Class # groups we want to be able to detect
 control_label <- "HC" # baseline group or control
 run_combat <- function(control_mat,
                        metadata,
-                       batch,
-                       method_name = NULL) {
+                       batch) {
   
   # ComBat expects features x samples, so transpose in and out (currently in samples x features)
   combat_input <- t(control_mat)
@@ -204,8 +203,6 @@ run_combat <- function(control_mat,
     par.prior = TRUE,
     prior.plots = FALSE
   )
-  
-  message("[", method_name, "] COMBAT correction complete.")
   
   t(combat_corrected)
 }
@@ -242,137 +239,58 @@ if (
 # Print summary
 message("Metadata features kept: ", ncol(train_meta_x))
 
-#### B: RELATIVE ABUNDANCE ----
+#### B: RELATIVE ABUNDANCE, PATHWAY COVERAGE, PATHWAY ABUNDANCE ----
+# 1. Start from train/test matrices and bind together
+train_X_temp <- cbind( 
+  train_taxa, 
+  train_path_abund, 
+  train_path_cov)
+test_X_temp  <- cbind(  
+  test_taxa,  
+  test_path_abund,  
+  test_path_cov)
 ## Keep biologically present features and statistically informative features, based only on training data.
-# 1. Start from train/test relative abundance
-train_taxa_X <- train_taxa
-test_taxa_X  <- test_taxa
-
 # 2. Prevalence filtering
 # Keep features present (>0) in at least X% of samples
-feature_prevalence <- colMeans(train_taxa_X > 0) #compute prevalence of each column in TRAIN
+feature_prevalence <- colMeans(train_X_temp > 0) #compute prevalence of each column in TRAIN
 
 # keep features that surpass the threshold set previously
 keep_prev_features <- names(feature_prevalence[feature_prevalence >= params$prev_filter])
 
 # subset test and train using features selected from TRAIN to avoid leakage
-train_X_prev <- train_taxa_X[, keep_prev_features, drop = FALSE]
-test_X_prev  <- test_taxa_X[, keep_prev_features, drop = FALSE]
+train_X_prev <- train_X_temp[, keep_prev_features, drop = FALSE]
+test_X_prev  <- test_X_temp[, keep_prev_features, drop = FALSE]
 
 # 3. Variance filtering
 # Remove near-zero variance features in TRAIN
 nzv <- nearZeroVar(train_X_prev) # can tune with freqCut and uniqueCut
 
 if (length(nzv) > 0) { # any near zero features found in TRAIN are removed from both TRAIN and TEST
-  train_taxa_filt <- train_X_prev[, -nzv, drop = FALSE]
-  test_taxa_filt  <- test_X_prev[, -nzv, drop = FALSE]
+  train_X_filt <- train_X_prev[, -nzv, drop = FALSE]
+  test_X_filt  <- test_X_prev[, -nzv, drop = FALSE]
 } else { # if nothing flagged, then data is unchanged
-  train_taxa_filt <- train_X_prev
-  test_taxa_filt  <- test_X_prev
+  train_X_filt <- train_X_prev
+  test_X_filt  <- test_X_prev
 }
 
 # 4. Normalize with ComBat (Train Only)
-train_taxa_filt <- run_combat(
-  control_mat = train_taxa_filt,
+train_X_filt <- run_combat(
+  control_mat = train_X_filt,
   metadata = train_meta,
-  batch = train_meta$study_name,
-  method_name = "Taxa"
+  batch = train_meta$study_name
 )
 
-message("Relative Abundance Features Kept: ", ncol(train_taxa_filt))
-
-#### C: PATHWAY ABUNDANCE ----
-# 1. Start from train/test pathway abundance
-train_pathab_X <- train_path_abund
-test_pathab_X  <- test_path_abund
-
-# 2. Prevalence filtering
-# Keep features present (>0) in at least X% of samples
-feature_prevalence <- colMeans(train_pathab_X > 0) #compute prevalence of each column in TRAIN
-
-# keep features that surpass the threshold set previously
-keep_prev_features <- names(feature_prevalence[feature_prevalence >= params$prev_filter])
-
-# subset test and train using features selected from TRAIN to avoid leakage
-train_X_prev <- train_pathab_X[, keep_prev_features, drop = FALSE]
-test_X_prev  <- test_pathab_X[, keep_prev_features, drop = FALSE]
-
-# 3. Variance filtering
-# Remove near-zero variance features in TRAIN
-nzv <- nearZeroVar(train_X_prev) # can tune with freqCut and uniqueCut
-
-if (length(nzv) > 0) { # any near zero features found in TRAIN are removed from both TRAIN and TEST
-  train_pathab_filt <- train_X_prev[, -nzv, drop = FALSE]
-  test_pathab_filt  <- test_X_prev[, -nzv, drop = FALSE]
-} else { # if nothing flagged, then data is unchanged
-  train_pathab_filt <- train_X_prev
-  test_pathab_filt  <- test_X_prev
-}
-
-# 4. Normalize with ComBat (Train Only)
-train_pathab_filt <- run_combat(
-  control_mat = train_pathab_filt,
-  metadata = train_meta,
-  batch = train_meta$study_name,
-  method_name = "Pathway Abundance"
-)
-
-message("Pathway Abundance Features Kept: ", ncol(train_pathab_filt))
-
-#### D: PATHWAY COVERAGE ----
-# 1. Start from train/test pathway coverage
-train_pathcov_X <- train_path_cov
-test_pathcov_X  <- test_path_cov
-
-# 2. Prevalence filtering
-# Keep features present (>0) in at least X% of samples
-feature_prevalence <- colMeans(train_pathcov_X > 0) #compute prevalence of each column in TRAIN
-
-# keep features that surpass the threshold set previously
-keep_prev_features <- names(feature_prevalence[feature_prevalence >= params$prev_filter])
-
-# subset test and train using features selected from TRAIN to avoid leakage
-train_X_prev <- train_pathcov_X[, keep_prev_features, drop = FALSE]
-test_X_prev  <- test_pathcov_X[, keep_prev_features, drop = FALSE]
-
-# 3. Variance filtering
-# Remove near-zero variance features in TRAIN
-nzv <- nearZeroVar(train_X_prev) # can tune with freqCut and uniqueCut
-
-if (length(nzv) > 0) { # any near zero features found in TRAIN are removed from both TRAIN and TEST
-  train_pathcov_filt <- train_X_prev[, -nzv, drop = FALSE]
-  test_pathcov_filt  <- test_X_prev[, -nzv, drop = FALSE]
-} else { # if nothing flagged, then data is unchanged
-  train_pathcov_filt <- train_X_prev
-  test_pathcov_filt  <- test_X_prev
-}
-
-# 4. Normalize with ComBat (Train Only)
-train_pathcov_filt <- run_combat(
-  control_mat = train_pathcov_filt,
-  metadata = train_meta,
-  batch = train_meta$study_name,
-  method_name = "Pathway Coverage"
-)
-
-message("Pathway Coverage Features Kept: ", ncol(train_pathcov_filt))
-
-
+message("Relative Abundance Features Kept: ", ncol(train_X_filt))
 
 # Step 3: Fit Random Forest --------------------------------------------------
 ## A. Model Input Preparation ----
-# Potentially only keep those that have all three (FAITH CODE HAS THIS)
-
+# Potentially only keep those that have all three
 train_X <- cbind(
   train_meta_x, 
-  train_taxa_filt, 
-  train_pathab_filt, 
-  train_pathcov_filt)
+  train_X_filt)
 test_X  <- cbind(
   test_meta_x,  
-  test_taxa_filt,  
-  test_pathab_filt,  
-  test_pathcov_filt)
+  test_X_filt)
 
 train_df <- cbind(train_X, RF_Class = train_meta$RF_Class)
 test_df  <- cbind(test_X,  RF_Class = test_meta$RF_Class)
